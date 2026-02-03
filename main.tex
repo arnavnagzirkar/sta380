@@ -1,0 +1,101 @@
+\documentclass[11pt]{article}
+\usepackage{polynom}
+\usepackage[a4paper,margin=0.75in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{natbib}
+
+\usepackage{tikz}
+\usepackage{ytableau}
+
+\title{{\textbf{STA380 Project Proposal}}
+
+\vspace{0.5 cm}
+
+\Large Computing Empirical and Theoretical Autocorrelation of Time Series Models}
+\author{\textbf{Daniel Cowley, Arnav Nagzirkar, Esteban Gonzalez, } \\
+        \textbf{Devesh Aggarwal, Khushal Patel, Sohaib Sajid}}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Project Topic}
+
+We will be computing the sample and theoretical autocovariance and autocorrelation for the following time series models: 
+\begin{itemize} 
+    \item Autoregressive (AR) 
+    \item Moving Average (MA) 
+    \item Autoregressive Moving Average (ARMA) 
+\end{itemize}
+
+\section{Simulation vs. Dataset}
+
+The results will only be from simulations.
+
+\section{Project Details}
+
+This project will focus on generating data from AR($k$), MA($k$), and ARMA($p,q$) time series models. We will compute both empirical and theoretical autocovariance and autocorrelation
+functions (through our own implementations), and compare the results. The time series processes will be generated from either user input or random coefficients.
+
+\vspace{0.5 cm}
+
+\noindent Specification of models and their parameters: (\cite{johnson2009})
+\begin{itemize}
+    \item Autoregressive (AR($k$))
+    \[Y_t = \sum_{i = 1}^k a_iY_{i - 1} + w_t, \quad w_t \overset{\text{i.i.d.}}{\sim} N(0, \sigma_W^2), \quad k \in \{1, 2, 3\}\]
+
+    Note: Theoretical values for autocorrelation and autocovariance can be generated recursively using the Yule-Walker equations.
+
+    \item Moving Average (MA($k$))
+    \[Y_t = w_t + \sum_{i = 1}^k b_iw_{t - i}, \quad w_t \overset{\text{i.i.d.}}{\sim} N(0, \sigma_W^2), \quad k \in \{1, 2, 3\}\]
+
+    \item Autoregressive Moving Average (ARMA($p, q$))
+    \[Y_t = \sum_{i = 1}^p a_iY_{i - 1} + w_t + \sum_{i = 1}^q b_iw_{t - i}, \quad w_t \overset{\text{i.i.d.}}{\sim} N(0, \sigma_W^2), \quad p \in \{1, 2, 3\}, \quad q \in \{1, 2, 3\}\]
+\end{itemize}
+
+\newpage
+
+\noindent The following outputs will be provided:
+\begin{itemize}
+    \item Plots of the generated time series
+    \item Sample ACVF and ACF plots alongside their theoretical counterparts
+    \item Bias between the sampled and true ACVF and ACF plots
+\end{itemize}
+
+\section{User Inputs (Shiny Components)}
+
+Users will be able to modify the following:
+\begin{enumerate}
+    \item Select which time series model to simulate.
+    
+    \item Toggle the display of the time series, ACF, and ACVF plots (in any configuration from individually to all together).
+
+    \item Ability to overlay the theoretical and sampled counterparts on the ACF and ACVF plots.
+
+    \item Specify model coefficients or generate them randomly.
+
+    \item Specify values of $k$ (up to at least 5).
+
+    \item Set the simulation length $t$ (to adjust computational time and accuracy of simulated stationarity conditions).
+
+    \item Specify a seed
+
+    \item Customize the color scheme of various UI elements (time permitted).
+
+    \item Ability to compare the computational efficiency of our methods with existing implementations (time permitted).
+\end{enumerate}
+
+\nocite{tidyverse}
+\nocite{shiny}
+\nocite{tseries}
+\nocite{testthat}
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}
