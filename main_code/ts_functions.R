@@ -253,3 +253,74 @@ get_theoretical_acf <- function(model, sigma, max_lag = 30) {
 
   return(acvf / acvf[1])
 }
+
+#' @description
+#' Computes the sample autocovariance function (ACVF) of a time series
+#' generated from an ARMA model. The sample ACVF is computed using the
+#' standard unbiased-denominator formula:
+#' \deqn{
+#'   \hat{\gamma}(h) = \frac{1}{n} \sum_{t=1}^{n-h} (X_t - \bar{X})(X_{t+h} - \bar{X}).
+#' }
+#'
+#' @param model A list containing the output ARMA model from function \code{gen_arma()}
+#' @param max_lag Integer. Maximum lag for which to compute the sample ACVF.
+#' Defaults to \code{floor(n / 2)}.
+#'
+#' @return
+#' A numeric vector of length \code{max_lag + 1} containing:
+#' \deqn{\hat{\gamma}(0), \hat{\gamma}(1), \ldots, \hat{\gamma}(\text{max\_lag}).}
+#'
+#' @examples
+#' set.seed(42)
+#' n <- 200
+#' wn <- rnorm(n)
+#' model <- gen_arma(n, wn, ar_coefs = 0.5, ma_coefs = NULL)
+#'
+#' get_sample_acvf(model, max_lag = 10)
+#'
+#' @export
+get_sample_acvf <- function(model, max_lag = NULL) {
+  x <- model$data
+  n <- model$n
+
+  if (is.null(max_lag)) {
+    max_lag <- floor(n / 2)
+  }
+
+  x_bar <- mean(x)
+  x_centered <- x - x_bar
+
+  sapply(0:max_lag, function(h) {
+    (1 / n) * sum(x_centered[1:(n - h)] * x_centered[(1 + h):n])
+  })
+}
+
+#' @description
+#' Computes the sample autocorrelation function (ACF) of a time series
+#' generated from an ARMA model. Values are obtained by normalizing the
+#' sample ACVF by its value at lag 0:
+#' \deqn{
+#'   \hat{\rho}(h) = \frac{\hat{\gamma}(h)}{\hat{\gamma}(0)}.
+#' }
+#'
+#' @param model A list containing the output ARMA model from function \code{gen_arma()}
+#' @param max_lag Integer. Maximum lag for which to compute the sample ACF.
+#' Defaults to \code{floor(n / 2)}.
+#'
+#' @return
+#' A numeric vector of length \code{max_lag + 1} containing:
+#' \deqn{\hat{\rho}(0), \hat{\rho}(1), \ldots, \hat{\rho}(\text{max\_lag}).}
+#'
+#' @examples
+#' set.seed(42)
+#' n <- 200
+#' wn <- rnorm(n)
+#' model <- gen_arma(n, wn, ar_coefs = 0.5, ma_coefs = NULL)
+#'
+#' get_sample_acf(model, max_lag = 10)
+#'
+#' @export
+get_sample_acf <- function(model, max_lag = NULL) {
+  acvf <- get_sample_acvf(model, max_lag)
+  acvf / acvf[1]
+}

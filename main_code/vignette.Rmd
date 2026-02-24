@@ -18,7 +18,7 @@ knitr::opts_chunk$set(fig.width=7, fig.height=6)
 ```
 
 ```{r setup}
-library(sta380)
+source("ts_functions.R")
 ```
 
 This vignette serves as an example on how to use the functions within the `sta380` package for simulating autoregressive (AR), moving-average (MA), and autoregressive moving-average (ARMA) models, compute their corresponding theoretical and sample autocovariance (ACVF) and autocorrelation (ACF) function, plot their data, and related functions:
@@ -31,7 +31,7 @@ This vignette serves as an example on how to use the functions within the `sta38
 
 -   Computing theoretical ACVF and ACF of a model `sta380::get_theoretical_acvf()` and `sta380::get_theoretical_acf()` respectively.
 
--   Computing sample ACVF and ACF of a model...
+-   Computing sample ACVF and ACF of a model `sta380::get_sample_acvf()` and `sta380::get_sample_acf()` respectively.
 
 The following examples will be sampling time series data from the following ARMA(1, 2), AR(1), and MA(2) models:
 \[X_t = 0.5X_{t - 1} + w_t + 0.5w_{t - 1} + 0.25w_{t - 2},\]
@@ -47,7 +47,7 @@ Note, while we will generate data and compare results for all three models, we o
 ## Generating Time Series Data for all models
 
 ```{r}
-n <- 10
+n <- 200
 phi <- 0.5
 theta <- c(0.5, 0.25)
 wn <- rnorm(n)
@@ -81,39 +81,50 @@ is_causal(arma)
 # For ARMA
 arma_t_acvf <- get_theoretical_acvf(arma, sigma = 1, max_lag = 10)
 arma_t_acf <- get_theoretical_acf(arma, sigma = 1, max_lag = 10)
-# arma_s_acvf <- get_sample_acvf(arma, max_lag = 10)
-# arma_s_acf <- get_sample_acf(arma, max_lag = 10)
+arma_s_acvf <- get_sample_acvf(arma, max_lag = 10)
+arma_s_acf <- get_sample_acf(arma, max_lag = 10)
 
 # For AR
 ar_t_acvf <- get_theoretical_acvf(ar, sigma = 1, max_lag = 10)
 ar_t_acf <- get_theoretical_acf(ar, sigma = 1, max_lag = 10)
-# ar_s_acvf <- get_sample_acvf(ar, max_lag = 10)
-# ar_s_acf <- get_sample_acf(ar, max_lag = 10)
+ar_s_acvf <- get_sample_acvf(ar, max_lag = 10)
+ar_s_acf <- get_sample_acf(ar, max_lag = 10)
 
 # For MA
 ma_t_acvf <- get_theoretical_acvf(ma, sigma = 1, max_lag = 10)
 ma_t_acf <- get_theoretical_acf(ma, sigma = 1, max_lag = 10)
-# ma_s_acvf <- get_sample_acvf(ma, max_lag = 10)
-# ma_s_acf <- get_sample_acf(ma, max_lag = 10)
+ma_s_acvf <- get_sample_acvf(ma, max_lag = 10)
+ma_s_acf <- get_sample_acf(ma, max_lag = 10)
 ```
 
 ## Plotting Theoretical ACVF and ACF
 
-# Comparison of All Three
-
-Looking at the results from all three samples, it appears that the Gibbs sampler gives the closest result to what we tried to simulate (although this has not been statistically verified.)
+Here we visualize the sample and theoretical ACF and ACVF for each model.
 
 ```{r}
-sims <- list(sim_attempt1, sim_attempt2, sim_attempt3)
+# Plot ARMA ACF comparison
+plot(0:10, arma_t_acf, type = "b", col = "blue", pch = 19, 
+     main = "ARMA(1,2) ACF: Theoretical vs Sample",
+     xlab = "Lag", ylab = "ACF", ylim = range(c(arma_t_acf, arma_s_acf)))
+lines(0:10, arma_s_acf, type = "b", col = "red", pch = 17)
+legend("topright", legend = c("Theoretical", "Sample"), 
+       col = c("blue", "red"), pch = c(19, 17), lty = 1)
 
-# Means
-sapply(sims, function(m) mean(m[,1]))
+# Plot AR ACF comparison
+plot(0:10, ar_t_acf, type = "b", col = "blue", pch = 19, 
+     main = "AR(1) ACF: Theoretical vs Sample",
+     xlab = "Lag", ylab = "ACF", ylim = range(c(ar_t_acf, ar_s_acf)))
+lines(0:10, ar_s_acf, type = "b", col = "red", pch = 17)
+legend("topright", legend = c("Theoretical", "Sample"), 
+       col = c("blue", "red"), pch = c(19, 17), lty = 1)
 
-# Standard Deviations
-sapply(sims, function(m) sd(m[,1]))
-
-# Correlations
-sapply(sims, function(m) cor(m[,1], m[,2]))
+# Plot MA ACF comparison
+plot(0:10, ma_t_acf, type = "b", col = "blue", pch = 19, 
+     main = "MA(2) ACF: Theoretical vs Sample",
+     xlab = "Lag", ylab = "ACF", ylim = range(c(ma_t_acf, ma_s_acf)))
+lines(0:10, ma_s_acf, type = "b", col = "red", pch = 17)
+legend("topright", legend = c("Theoretical", "Sample"), 
+       col = c("blue", "red"), pch = c(19, 17), lty = 1)
 ```
 
 # Bibliography
