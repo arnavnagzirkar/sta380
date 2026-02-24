@@ -165,7 +165,7 @@ arma_to_ma <- function(model, max_lag = 30) {
 #' is_casual(model2) # FALSE
 #'
 #' @export
-is_casual <- function(model) {
+is_causal <- function(model) {
   if(is.null(model$ar_coefs)) return(TRUE)
 
   poly = c(1, -model$ar_coefs)
@@ -245,8 +245,8 @@ get_theoretical_acvf <- function(model, sigma, max_lag = 30) {
 #'
 #' @export
 get_theoretical_acf <- function(model, sigma, max_lag = 30) {
-  if(!is_casual(model)) {
-    print("Returning theoretical PACF instead as AR part is not casual.")
+  if(!is_causal(model)) {
+    print("AR part is not casual, so returned ACF may not be accurate.")
   }
 
   acvf <- get_theoretical_acvf(model, sigma, max_lag)
