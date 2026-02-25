@@ -102,29 +102,50 @@ ma_s_acf <- get_sample_acf(ma, max_lag = 10)
 Here we visualize the sample and theoretical ACF and ACVF for each model.
 
 ```{r}
-# Plot ARMA ACF comparison
-plot(0:10, arma_t_acf, type = "b", col = "blue", pch = 19, 
-     main = "ARMA(1,2) ACF: Theoretical vs Sample",
-     xlab = "Lag", ylab = "ACF", ylim = range(c(arma_t_acf, arma_s_acf)))
-lines(0:10, arma_s_acf, type = "b", col = "red", pch = 17)
-legend("topright", legend = c("Theoretical", "Sample"), 
-       col = c("blue", "red"), pch = c(19, 17), lty = 1)
+# function to compare plots
+plot_compare <- function(theoretical, sample, main, ylab) {
+  lags <- 0:(length(theoretical) - 1)
+  plot(lags, theoretical, type = "b", col = "blue", pch = 19,
+       main = main, xlab = "Lag", ylab = ylab,
+       ylim = range(c(theoretical, sample), na.rm = TRUE))
+  lines(lags, sample, type = "b", col = "red", pch = 17)
+  abline(h = 0)
+  legend("topright", legend = c("Theoretical", "Sample"),
+         col = c("blue", "red"), pch = c(19, 17), lty = 1, bty = "n")
+}
 
-# Plot AR ACF comparison
-plot(0:10, ar_t_acf, type = "b", col = "blue", pch = 19, 
-     main = "AR(1) ACF: Theoretical vs Sample",
-     xlab = "Lag", ylab = "ACF", ylim = range(c(ar_t_acf, ar_s_acf)))
-lines(0:10, ar_s_acf, type = "b", col = "red", pch = 17)
-legend("topright", legend = c("Theoretical", "Sample"), 
-       col = c("blue", "red"), pch = c(19, 17), lty = 1)
+# ARMA(1,2) plots
+plot.ts(arma$data, main = "ARMA(1,2) Simulated Data", ylab = "X_t", xlab = "t")
 
-# Plot MA ACF comparison
-plot(0:10, ma_t_acf, type = "b", col = "blue", pch = 19, 
-     main = "MA(2) ACF: Theoretical vs Sample",
-     xlab = "Lag", ylab = "ACF", ylim = range(c(ma_t_acf, ma_s_acf)))
-lines(0:10, ma_s_acf, type = "b", col = "red", pch = 17)
-legend("topright", legend = c("Theoretical", "Sample"), 
-       col = c("blue", "red"), pch = c(19, 17), lty = 1)
+plot_compare(arma_t_acvf, arma_s_acvf,
+             main = "ARMA(1,2) ACVF: Theoretical vs Sample",
+             ylab = "ACVF")
+
+plot_compare(arma_t_acf, arma_s_acf,
+             main = "ARMA(1,2) ACF: Theoretical vs Sample",
+             ylab = "ACF")
+
+# AR(1) plots
+plot.ts(ar$data, main = "AR(1) Simulated Data", ylab = "X_t", xlab = "t")
+
+plot_compare(ar_t_acvf, ar_s_acvf,
+             main = "AR(1) ACVF: Theoretical vs Sample",
+             ylab = "ACVF")
+
+plot_compare(ar_t_acf, ar_s_acf,
+             main = "AR(1) ACF: Theoretical vs Sample",
+             ylab = "ACF")
+
+# MA(2) plots
+plot.ts(ma$data, main = "MA(2) Simulated Data", ylab = "X_t", xlab = "t")
+
+plot_compare(ma_t_acvf, ma_s_acvf,
+             main = "MA(2) ACVF: Theoretical vs Sample",
+             ylab = "ACVF")
+
+plot_compare(ma_t_acf, ma_s_acf,
+             main = "MA(2) ACF: Theoretical vs Sample",
+             ylab = "ACF")
 ```
 
 # Bibliography
