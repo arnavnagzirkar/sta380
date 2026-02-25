@@ -18,7 +18,8 @@
 
 # - A summary of relevant R functions for the purposes of vectorized operations.
 # - Clean up of the aesthetics of the document as of 2026-02-21. 
-# - AR and ARMA computations are largely based on AI suggested procedures as of 2026-02-21
+# - AR and ARMA computations are largely based on AI suggested procedures as
+# of 2026-02-21
 
 library(tidyverse)
 
