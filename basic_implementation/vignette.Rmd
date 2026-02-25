@@ -21,7 +21,7 @@ knitr::opts_chunk$set(fig.width=7, fig.height=6)
 source("ts_functions.R")
 ```
 
-This vignette serves as an example on how to use the functions within the `sta380` package for simulating autoregressive (AR), moving-average (MA), and autoregressive moving-average (ARMA) models, compute their corresponding theoretical and sample autocovariance (ACVF) and autocorrelation (ACF) function, plot their data, and related functions:
+This vignette serves as an example on how to use the functions within the `sta380` package for simulating autoregressive (AR), moving-average (MA), and autoregressive moving-average (ARMA) models, compute their corresponding theoretical and sample autocovariance (ACVF) and autocorrelation (ACF) function, and helper functions to do so:
 
 -   Model Generation `sta380::gen_arma()`,
 
@@ -41,8 +41,6 @@ The following examples will be sampling time series data from the following ARMA
 where $w_t \overset{\text{i.i.d.}}{\sim} N(\mu = 0, \sigma_W^2 = 1).$ 
 
 Note, while we will generate data and compare results for all three models, we omit examples of utilizing the helper functions `sta380::arma_to_ma()` and `sta380::is_causal()` for AR and MA models as they are similarly utilized.
-
-# 
 
 ## Generating Time Series Data for all models and plotting them
 
@@ -78,22 +76,22 @@ is_causal(arma)
 
 ```{r}
 # For ARMA
-arma_t_acvf <- get_theoretical_acvf(arma, sigma = 1, max_lag = 10)
-arma_t_acf <- get_theoretical_acf(arma, sigma = 1, max_lag = 10)
-arma_s_acvf <- get_sample_acvf(arma, max_lag = 10)
-arma_s_acf <- get_sample_acf(arma, max_lag = 10)
+arma_t_acvf <- get_theoretical_acvf(arma, sigma = 1, max_lag = 20)
+arma_t_acf <- get_theoretical_acf(arma, sigma = 1, max_lag = 20)
+arma_s_acvf <- get_sample_acvf(arma, max_lag = 20)
+arma_s_acf <- get_sample_acf(arma, max_lag = 20)
 
 # For AR
-ar_t_acvf <- get_theoretical_acvf(ar, sigma = 1, max_lag = 10)
-ar_t_acf <- get_theoretical_acf(ar, sigma = 1, max_lag = 10)
-ar_s_acvf <- get_sample_acvf(ar, max_lag = 10)
-ar_s_acf <- get_sample_acf(ar, max_lag = 10)
+ar_t_acvf <- get_theoretical_acvf(ar, sigma = 1, max_lag = 20)
+ar_t_acf <- get_theoretical_acf(ar, sigma = 1, max_lag = 20)
+ar_s_acvf <- get_sample_acvf(ar, max_lag = 20)
+ar_s_acf <- get_sample_acf(ar, max_lag = 20)
 
 # For MA
-ma_t_acvf <- get_theoretical_acvf(ma, sigma = 1, max_lag = 10)
-ma_t_acf <- get_theoretical_acf(ma, sigma = 1, max_lag = 10)
-ma_s_acvf <- get_sample_acvf(ma, max_lag = 10)
-ma_s_acf <- get_sample_acf(ma, max_lag = 10)
+ma_t_acvf <- get_theoretical_acvf(ma, sigma = 1, max_lag = 20)
+ma_t_acf <- get_theoretical_acf(ma, sigma = 1, max_lag = 20)
+ma_s_acvf <- get_sample_acvf(ma, max_lag = 20)
+ma_s_acf <- get_sample_acf(ma, max_lag = 20)
 ```
 
 ## Plotting Theoretical ACVF and ACF
@@ -140,6 +138,20 @@ plot_compare(ma_t_acf, ma_s_acf,
              main = "MA(2) ACF: Theoretical vs Sample",
              ylab = "ACF")
 ```
+
+## Model Comparisons
+
+We can see the following defining characteristics among the example models:
+
+- The theoretical MA(2) ACVF and ACF go to zero after lag 2, as expected for MA(q) processes.
+
+- The theoretical AR(1) and ARMA(1, 2) ACVF and ACF converge to zero as lag goes to infinity, also expected for AR(p) and ARMA(p, q) processes.
+
+- Sample ACVF and ACF follow their theoretical counterparts, though offset, and exhibit sinusoidal behavior for large lags, reflecting the noise found in samples.
+
+## Generative AI Declaration
+
+Generative AI was used to assist in the writing, testing, and documentation of some functions.
 
 # Bibliography
 
