@@ -1,54 +1,51 @@
 # ============================================================
-# Tests for theoretical_acf.R
+# Tests for ts_functions.R
 # Run with: testthat
 # ============================================================
 # Strategy: where possible, check our output against R's built-in
-# ARMAacf(), which provides a trusted reference for ACF values.
-# ACVF values are verified by hand-derivable closed forms (e.g.
-# AR(1): gamma(0) = sigma_w^2 / (1 - a^2)).
+# offerings, which provide a trusted reference.
 
-# Environment Setup
+# Environment Setup, assuming root of project is working dir.
 library(testthat)
 
-source("ts_functions.R")
+source("basic_implementation/ts_functions.R")
 
-# Constants and Parameters
 
 # ============================================================
 # GENERATOR Tests
 # ============================================================
 
 test_that("gen_arma model for single ar(p)", {
-
+  
   # Define test parameters
   n <- 100
   k <- 2
   mean <- 0
   sigma <- 1
-
+  
   coefs_expr <- quote(seq(from = 0.5/k, to = 0, length.out = k))
   wn_expr <- quote(rnorm(n, mean = mean, sd = sigma))
   
   coefs <- eval(coefs_expr)
   wn <- eval(wn_expr)
-
+  
   tol <- 1e-6
-
+  
   # Call our function
   my_ar <- gen_arma(n = n, ar_coefs = coefs, ma_coefs = NULL, wn = wn)$data
-
+  
   # In-built R call
   r_ar <- as.numeric(arima.sim(model = list(ar = coefs),
                                n = n, 
                                innov = wn, 
                                start.innov = rep(0,100)))
-                     
+  
   # Note that the start.innov is a fix for R starting with a longer
-  # than expected series for stability of patterns.
-
+  # than expected series for the series to stabilize.
+  
   # Compare outputs
   expect_equal(my_ar, r_ar, tolerance = tol)
-
+  
 })
 
 test_that("gen_arma model for single ma(q)", {
@@ -105,9 +102,9 @@ test_that("gen_arma model for a whole arma(p,q)", {
   
   # In-built R call
   r_arma <- as.numeric(arima.sim(model = list(ar = coefs, ma = coefs),
-                               n = n, 
-                               innov = wn, 
-                               start.innov = rep(0,100)))
+                                 n = n, 
+                                 innov = wn, 
+                                 start.innov = rep(0,100)))
   
   # Note that the start.innov is a fix for R starting with a longer
   # than expected series for stability of patterns.
@@ -117,10 +114,10 @@ test_that("gen_arma model for a whole arma(p,q)", {
   
 })
 
+
 # ============================================================
 # ARMA TRANSFORMATION tests
 # ============================================================
-
 
 test_that("arma_to_ma matches ARMAtoMA for ar case", {
   
@@ -148,8 +145,7 @@ test_that("arma_to_ma matches ARMAtoMA for ar case", {
   
 })
 
-
-test_that("arma_to_ma matches ARMAtoMA for pure ma case", {
+test_that("arma_to_ma matches ARMAtoMA for ma case", {
   
   # Define test parameters
   p <- 0
@@ -176,7 +172,6 @@ test_that("arma_to_ma matches ARMAtoMA for pure ma case", {
   
 })
 
-
 test_that("arma_to_ma matches ARMAtoMA for arma case", {
   
   # Define test parameters
@@ -184,15 +179,10 @@ test_that("arma_to_ma matches ARMAtoMA for arma case", {
   q <- 1
   k <- 1
   max_lag <- 10
-  mean <- 0
-  sigma <- 1
-  n <- 100
   
   coefs_expr <- quote(seq(from = 0.5/k, to = 0, length.out = k))
-  wn_expr <- quote(rnorm(n, mean = mean, sd = sigma))
   
   coefs <- eval(coefs_expr)
-  wn <- eval(wn_expr)
   
   tol <- 1e-6
   
@@ -229,18 +219,16 @@ test_that("is_causal identifies causality for ar case", {
   model <- list(p = 1, q = 0, ar_coefs = 1.2, ma_coefs = NULL)
   
   expect_false(is_causal(model))
-
+  
 })
 
-
-test_that("is_causal should alway s return true for ma case", {
+test_that("is_causal should always return true for ma case", {
   
   model <- list(p = 0, q = 1, ar_coefs = NULL, ma_coefs = 1.2)
   
   expect_true(is_causal(model))
   
 })
-
 
 test_that("is_causal works identifies causality for arma case)", {
   
@@ -256,9 +244,13 @@ test_that("is_causal works identifies causality for arma case)", {
   
 })
 
+
 # ============================================================
 # ACVF/ACF COMPUTATION tests
 # ============================================================
+
+
+# ============= Theoretical Computation Sub-cases ============
 
 test_that("ACF matches the manual computation", {
   
@@ -270,18 +262,14 @@ test_that("ACF matches the manual computation", {
   k <- q
   sigma <- 1
   max_lag <- 10
-  mean <- 0
-  sigma <- 1
   n <- 100
+  
+  tol <- 1e-3
   
   # Pick coefficients
   coefs_expr <- quote(seq(from = 0.5/k, to = 0, length.out = k))
-  wn_expr <- quote(rnorm(n, mean = mean, sd = sigma))
   
   coefs <- eval(coefs_expr)
-  wn <- eval(wn_expr)
-  
-  tol <- 1e-6
   
   model <- list(p = p, q = q, ar_coefs = coefs, ma_coefs = coefs)
   
@@ -319,3 +307,68 @@ test_that("ma case should not have acf after q lags", {
   
 })
 
+# ============= Sample Computation Sub-cases ============
+
+test_that("Sample ACF matches the manual computation", {
+  
+  # Parameters
+  p <- 1
+  q <- 1
+  k <- q
+  sigma <- 1
+  max_lag <- 10
+  mean <- 0
+  n <- 100
+  
+  tol <- 1e-6
+  
+  coefs <- eval(quote(seq(from = 0.5/k, to = 0, length.out = k)))
+  wn <- eval(quote(rnorm(n, mean = mean, sd = sigma)))
+  
+  # Generate the model
+  model <- gen_arma(n = n, wn = wn, ar_coefs = coefs, ma_coefs = coefs)
+  
+  # Call out sample functions
+  sample_acvf <- get_sample_acvf(model = model, max_lag = max_lag)
+  sample_acf <- get_sample_acf(model = model, max_lag = max_lag)
+  
+  # In-built R calls
+  r_acvf_obj <- stats::acf(model$data, lag.max = max_lag, plot = FALSE, type = "covariance")
+  sample_acvf_r <- as.numeric(r_acvf_obj$acf)
+  
+  r_acf_obj <- stats::acf(model$data, lag.max = max_lag, plot = FALSE, type = "correlation")
+  sample_acf_r <- as.numeric(r_acf_obj$acf)
+  
+  # Compare outputs
+  expect_equal(sample_acvf, sample_acvf_r, tolerance = tol)
+  expect_equal(sample_acf, sample_acf_r, tolerance = tol)
+})
+
+# Note that since samples are prone to random noise, the
+# tolerance has to be somewhat lenient, but not unreasonable.
+test_that("ma case should not have acf after q lags", {
+  
+  # Parameters
+  p <- 0
+  q <- 1
+  k <- q
+  sigma <- 1
+  max_lag <- 10
+  mean <- 0
+  n <- 100
+  
+  tol <- 0.25
+  
+  coefs <- eval(quote(seq(from = 0.5/k, to = 0, length.out = k)))
+  wn <- eval(quote(rnorm(n, mean = mean, sd = sigma)))
+  
+  # Generate the model
+  model <- gen_arma(n = n, wn = wn, ar_coefs = NULL, ma_coefs = coefs)
+  
+  my_acf <- get_sample_acf(model = model, max_lag = max_lag)
+  
+  expect_true(abs(my_acf[2]) > 0)
+  expect_equal(my_acf[6], 0, tolerance = tol)
+  expect_equal(my_acf[7], 0, tolerance = tol)
+  
+})
