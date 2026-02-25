@@ -4,7 +4,13 @@ k <- 2
 mean <- 0
 sigma <- 1
 
-coefs_expr <- quote(seq(from = 1 - (1 / k), to = 0, by = -1 / k))
+# Proposed change. These coefficients sum too close to 1.
+# A sum less than one is necessary for stationarity. Propose the
+# following instead. SEE BELOW COEFS_EXPR
+
+# coefs_expr <- quote(seq(from = 1 - (1 / k), to = 0, by = -1 / k))
+coefs_expr <- quote(seq(from = 0.5/k, to = 0, length.out = k))
+
 wn_expr <- quote(rnorm(n, mean = mean, sd = sigma))
 
 # Model Generating Functions #####
@@ -101,3 +107,4 @@ ma <- gen_arma(n, 0, k, arma$wn, ar_coefs = NULL, ma_coefs = arma$ma_coefs)
 plot.ts(arma$data)
 plot.ts(ar$data)
 plot.ts(ma$data)
+
