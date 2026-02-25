@@ -10,8 +10,7 @@
 # Environment Setup
 library(testthat)
 
-source("test_code/Theoretical_ACVF_ACF_Computation.R")
-source("test_code/Model_Implementations.R")
+source("ts_functions.R")
 
 # Constants and Parameters
 
@@ -36,8 +35,7 @@ test_that("gen_arma model for single ar(p)", {
   tol <- 1e-6
 
   # Call our function
-  my_ar <- gen_arma(n = n, p = k, q = 0, ar_coefs = coefs,
-                    ma_coefs = NULL, wn = wn)$data
+  my_ar <- gen_arma(n = n, ar_coefs = coefs, ma_coefs = NULL, wn = wn)$data
 
   # In-built R call
   r_ar <- as.numeric(arima.sim(model = list(ar = coefs),
@@ -70,8 +68,7 @@ test_that("gen_arma model for single ma(q)", {
   tol <- 1e-6
   
   # Call our function
-  my_ma <- gen_arma(n = n, p = 0, q = k, ar_coefs = NULL,
-                    ma_coefs = coefs, wn = wn)$data
+  my_ma <- gen_arma(n = n, ar_coefs = NULL, ma_coefs = coefs, wn = wn)$data
   
   # In-built R call
   r_ma <- as.numeric(arima.sim(model = list(ma = coefs),
@@ -104,8 +101,7 @@ test_that("gen_arma model for a whole arma(p,q)", {
   tol <- 1e-6
   
   # Call our function
-  my_arma <- gen_arma(n = n, p = k, q = k, ar_coefs = coefs,
-                    ma_coefs = coefs, wn = wn)$data
+  my_arma <- gen_arma(n = n, ar_coefs = coefs, ma_coefs = coefs, wn = wn)$data
   
   # In-built R call
   r_arma <- as.numeric(arima.sim(model = list(ar = coefs, ma = coefs),
@@ -138,10 +134,7 @@ test_that("arma_to_ma matches ARMAtoMA for ar case", {
   
   tol <- 1e-6
   
-  model <- list(p = p, 
-                q = q, 
-                ar_coefs = coefs, 
-                ma_coefs = NULL)
+  model <- list(p = p, q = q, ar_coefs = coefs, ma_coefs = NULL)
   
   # Call our function
   my_psi <- arma_to_ma(model, max_lag = max_lag)
@@ -169,10 +162,7 @@ test_that("arma_to_ma matches ARMAtoMA for pure ma case", {
   
   tol <- 1e-6
   
-  model <- list(p = p, 
-                q = q, 
-                ar_coefs = NULL, 
-                ma_coefs = coefs)
+  model <- list(p = p, q = q, ar_coefs = NULL, ma_coefs = coefs)
   
   # Call our function
   my_psi <- arma_to_ma(model, max_lag = max_lag)
@@ -192,7 +182,11 @@ test_that("arma_to_ma matches ARMAtoMA for arma case", {
   # Define test parameters
   p <- 1
   q <- 1
+  k <- 1
   max_lag <- 10
+  mean <- 0
+  sigma <- 1
+  n <- 100
   
   coefs_expr <- quote(seq(from = 0.5/k, to = 0, length.out = k))
   wn_expr <- quote(rnorm(n, mean = mean, sd = sigma))
@@ -202,16 +196,13 @@ test_that("arma_to_ma matches ARMAtoMA for arma case", {
   
   tol <- 1e-6
   
-  model <- list(p = p, 
-                q = q, 
-                ar_coefs = coefs, 
-                ma_coefs = coefs)
+  model <- list(p = p, q = q, ar_coefs = coefs, ma_coefs = coefs)
   
   # Call our function
   my_psi <- arma_to_ma(model, max_lag = max_lag)
   
   # In-built R call
-  r_psi <- ARMAtoMA(ar = coefs, ma = coefs,lag.max = max_lag)
+  r_psi <- ARMAtoMA(ar = coefs, ma = coefs, lag.max = max_lag)
   
   # Compare outputs with an index offset
   expect_equal(my_psi[1], 1)
@@ -224,57 +215,44 @@ test_that("arma_to_ma matches ARMAtoMA for arma case", {
 # CAUSALITY tests
 # ============================================================
 
-test_that("is_casual identifies causality for ar case", {
+test_that("is_causal identifies causality for ar case", {
   
   # Note that if the roots lie outside the unit circle
   # we are stable
   
   # Stable case:
-  model <- list(p = 1, 
-                       q = 0, 
-                       ar_coefs = 0.5, 
-                       ma_coefs = NULL)
-  expect_true(is_casual(model))
+  model <- list(p = 1, q = 0, ar_coefs = 0.5, ma_coefs = NULL)
+  
+  expect_true(is_causal(model))
   
   # Unstable case
-  model <- list(p = 1, 
-                         q = 0, 
-                         ar_coefs = 1.2, 
-                         ma_coefs = NULL)
-  expect_false(is_casual(model))
+  model <- list(p = 1, q = 0, ar_coefs = 1.2, ma_coefs = NULL)
+  
+  expect_false(is_causal(model))
 
 })
 
 
-test_that("is_casual should alway s return true for ma case", {
+test_that("is_causal should alway s return true for ma case", {
   
-  model <- list(p = 0, 
-                   q = 1, 
-                   ar_coefs = NULL, 
-                   ma_coefs = 1.2)
+  model <- list(p = 0, q = 1, ar_coefs = NULL, ma_coefs = 1.2)
   
-  expect_true(is_casual(model))
+  expect_true(is_causal(model))
   
 })
 
 
-test_that("is_casual works identifies causality for arma case)", {
+test_that("is_causal works identifies causality for arma case)", {
   
   # Stable case
-  model <- list(p = 1, 
-                     q = 1, 
-                     ar_coefs = 0.7, 
-                     ma_coefs = 0.4)
+  model <- list(p = 1, q = 1, ar_coefs = 0.7, ma_coefs = 0.4)
   
-  expect_true(is_casual(model))
+  expect_true(is_causal(model))
   
   # Unstable case
-  model <- list(p = 1, 
-                              q = 1, 
-                              ar_coefs = 1.1, 
-                              ma_coefs = 0.4)
+  model <- list(p = 1, q = 1, ar_coefs = 1.1, ma_coefs = 0.4)
   
-  expect_false(is_casual(model))
+  expect_false(is_causal(model))
   
 })
 
@@ -289,8 +267,12 @@ test_that("ACF matches the manual computation", {
   # Define test parameters
   p <- 1
   q <- 1
+  k <- q
   sigma <- 1
   max_lag <- 10
+  mean <- 0
+  sigma <- 1
+  n <- 100
   
   # Pick coefficients
   coefs_expr <- quote(seq(from = 0.5/k, to = 0, length.out = k))
@@ -301,10 +283,7 @@ test_that("ACF matches the manual computation", {
   
   tol <- 1e-6
   
-  model <- list(p = p, 
-                q = q, 
-                ar_coefs = coefs, 
-                ma_coefs = coefs)
+  model <- list(p = p, q = q, ar_coefs = coefs, ma_coefs = coefs)
   
   # Call our functions
   my_acf <- get_theoretical_acf(model = model, sigma = sigma, max_lag = max_lag)
@@ -330,10 +309,7 @@ test_that("ma case should not have acf after q lags", {
   ma_coefs <- 0.5
   sigma <- 1
   
-  model <- list(p = p, 
-                   q = q, 
-                   ar_coefs = NULL, 
-                   ma_coefs = ma_coefs)
+  model <- list(p = p, q = q, ar_coefs = NULL, ma_coefs = ma_coefs)
   
   my_acf <- get_theoretical_acf(model = model, sigma = sigma, max_lag = max_lag)
   
