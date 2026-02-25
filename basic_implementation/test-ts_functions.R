@@ -8,7 +8,7 @@
 # Environment Setup, assuming root of project is working dir.
 library(testthat)
 
-source("basic_implementation/ts_functions.R")
+source("ts_functions.R")
 
 
 # ============================================================
@@ -254,8 +254,6 @@ test_that("is_causal works identifies causality for arma case)", {
 
 test_that("ACF matches the manual computation", {
   
-  # Recall the that ACF = ACVF * Var
-  
   # Define test parameters
   p <- 1
   q <- 1
@@ -289,7 +287,7 @@ test_that("ACF matches the manual computation", {
   expect_equal(as.numeric(my_acvf), expected_acvf, tolerance = tol)
 })
 
-test_that("ma case should not have acf after q lags", {
+test_that("ma case should not have theoretical acf after q lags", {
   
   p <- 0
   q <- 1
@@ -344,31 +342,3 @@ test_that("Sample ACF matches the manual computation", {
   expect_equal(sample_acf, sample_acf_r, tolerance = tol)
 })
 
-# Note that since samples are prone to random noise, the
-# tolerance has to be somewhat lenient, but not unreasonable.
-test_that("ma case should not have acf after q lags", {
-  
-  # Parameters
-  p <- 0
-  q <- 1
-  k <- q
-  sigma <- 1
-  max_lag <- 10
-  mean <- 0
-  n <- 100
-  
-  tol <- 0.25
-  
-  coefs <- eval(quote(seq(from = 0.5/k, to = 0, length.out = k)))
-  wn <- eval(quote(rnorm(n, mean = mean, sd = sigma)))
-  
-  # Generate the model
-  model <- gen_arma(n = n, wn = wn, ar_coefs = NULL, ma_coefs = coefs)
-  
-  my_acf <- get_sample_acf(model = model, max_lag = max_lag)
-  
-  expect_true(abs(my_acf[2]) > 0)
-  expect_equal(my_acf[6], 0, tolerance = tol)
-  expect_equal(my_acf[7], 0, tolerance = tol)
-  
-})

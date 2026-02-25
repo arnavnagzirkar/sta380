@@ -151,7 +151,7 @@ We can see the following defining characteristics among the example models:
 
 ## Generative AI Declaration
 
-Generative AI was used to assist in the writing, testing, and documentation of some functions.
+Generative AI was used to assist in the writing, testing, and documentation of some functions and test cases.
 
 # Bibliography
 
