@@ -44,10 +44,11 @@ Note, while we will generate data and compare results for all three models, we o
 
 # 
 
-## Generating Time Series Data for all models
+## Generating Time Series Data for all models and plotting them
 
 ```{r}
-n <- 200
+set.seed(1)
+n <- 50
 phi <- 0.5
 theta <- c(0.5, 0.25)
 wn <- rnorm(n)
@@ -56,11 +57,9 @@ ar <- gen_arma(n, wn, ar_coefs = phi, ma_coefs = NULL)
 ma <- gen_arma(n, wn, ar_coefs = NULL, ma_coefs = theta)
 arma <- gen_arma(n, wn, ar_coefs = phi, ma_coefs = theta)
 
-# Sampled data from model
-plot.ts(arma$data)
-
-# Sampled white noise used in model
-arma$wn
+plot.ts(ar$data, main = "AR(1) Simulated Data", ylab = "X_t", xlab = "t")
+plot.ts(ma$data, main = "MA(2) Simulated Data", ylab = "X_t", xlab = "t")
+plot.ts(arma$data, main = "ARMA(1,2) Simulated Data", ylab = "X_t", xlab = "t")
 ```
 
 ## Converting ARMA Model to Infinite-order MA Model
@@ -115,8 +114,6 @@ plot_compare <- function(theoretical, sample, main, ylab) {
 }
 
 # ARMA(1,2) plots
-plot.ts(arma$data, main = "ARMA(1,2) Simulated Data", ylab = "X_t", xlab = "t")
-
 plot_compare(arma_t_acvf, arma_s_acvf,
              main = "ARMA(1,2) ACVF: Theoretical vs Sample",
              ylab = "ACVF")
@@ -126,8 +123,6 @@ plot_compare(arma_t_acf, arma_s_acf,
              ylab = "ACF")
 
 # AR(1) plots
-plot.ts(ar$data, main = "AR(1) Simulated Data", ylab = "X_t", xlab = "t")
-
 plot_compare(ar_t_acvf, ar_s_acvf,
              main = "AR(1) ACVF: Theoretical vs Sample",
              ylab = "ACVF")
@@ -137,8 +132,6 @@ plot_compare(ar_t_acf, ar_s_acf,
              ylab = "ACF")
 
 # MA(2) plots
-plot.ts(ma$data, main = "MA(2) Simulated Data", ylab = "X_t", xlab = "t")
-
 plot_compare(ma_t_acvf, ma_s_acvf,
              main = "MA(2) ACVF: Theoretical vs Sample",
              ylab = "ACVF")
