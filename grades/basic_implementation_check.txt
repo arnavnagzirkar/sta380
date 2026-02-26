@@ -1,0 +1,19 @@
+Generally is good!
+
+One coding decision that I think is weird, particularly when looking at the test code is:
+
+r_acvf_obj <- stats::acf(model$data, lag.max = max_lag, plot = FALSE, type = "covariance")
+
+In particular, when you run R, the `stats` package is always included.
+
+Hence you could've just done:
+
+r_acvf_obj <- acf(model$data, lag.max = max_lag, plot = FALSE, type = "covariance")
+
+Indeed, you didn't do `stats::ARMAacf`, so it really isn't necessary.
+
+In my own notes, I recall there should be 6 members. however, the git history only shows that 5 members have contributed to the project.
+
+I hope they're working on the next checkpoint, because if I contribute more lines than other students overall through feedback, that would be concerning.
+
+2/2
