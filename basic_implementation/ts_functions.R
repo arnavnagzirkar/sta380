@@ -116,6 +116,10 @@ arma_to_ma <- function(model, max_lag = 30) {
   theta <- model$ma_coefs
   phi <- model$ar_coefs
 
+  if (max_lag == 0) {
+    return(c(1))
+  }
+
   psi <- numeric(max_lag)
   psi[1] <- 1
 

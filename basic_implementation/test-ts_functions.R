@@ -342,3 +342,113 @@ test_that("Sample ACF matches the manual computation", {
   expect_equal(sample_acf, sample_acf_r, tolerance = tol)
 })
 
+# ============================================================
+# gen_arma Edge Cases
+# ============================================================
+
+test_that("gen_arma with ARMA(0,0) returns white noise exactly", {
+  n <- 50
+  wn <- rnorm(n)
+
+  model <- gen_arma(n = n, wn = wn, ar_coefs = NULL, ma_coefs = NULL)
+
+  expect_equal(model$data, wn)
+  expect_equal(model$p, 0)
+  expect_equal(model$q, 0)
+})
+
+test_that("gen_arma works for n = 1", {
+  wn <- 0.123
+  model <- gen_arma(n = 1, wn = wn, ar_coefs = 0.7, ma_coefs = -0.2)
+
+  expect_length(model$data, 1)
+  expect_equal(model$data[1], wn)
+})
+
+
+# ============================================================
+# arma_to_ma Robustness
+# ============================================================
+
+test_that("arma_to_ma returns correct length and no NA values", {
+  model <- list(p = 1, q = 1, ar_coefs = 0.4, ma_coefs = 0.2)
+
+  psi <- arma_to_ma(model, max_lag = 10)
+
+  expect_length(psi, 11)   # includes lag 0
+  expect_false(anyNA(psi))
+  expect_equal(psi[1], 1)
+})
+
+test_that("arma_to_ma with max_lag = 0 returns only psi0", {
+  model <- list(p = 1, q = 0, ar_coefs = 0.4, ma_coefs = NULL)
+
+  psi <- arma_to_ma(model, max_lag = 0)
+
+  expect_equal(psi, 1)
+})
+
+
+# ============================================================
+# is_causal Boundary Tests
+# ============================================================
+
+test_that("is_causal returns FALSE when AR root is on unit circle", {
+  model <- list(p = 1, q = 0, ar_coefs = 1.0, ma_coefs = NULL)
+  expect_false(is_causal(model))
+})
+
+test_that("is_causal works for AR(2) stable vs unstable cases", {
+  stable_model <- list(p = 2, q = 0, ar_coefs = c(0.5, -0.2), ma_coefs = NULL)
+  unstable_model <- list(p = 2, q = 0, ar_coefs = c(1.3, 0.0), ma_coefs = NULL)
+
+  expect_true(is_causal(stable_model))
+  expect_false(is_causal(unstable_model))
+})
+
+
+# ============================================================
+# Theoretical White Noise Case
+# ============================================================
+
+test_that("theoretical ACF and ACVF for white noise are correct", {
+  sigma <- 2
+  max_lag <- 8
+
+  model <- list(p = 0, q = 0, ar_coefs = NULL, ma_coefs = NULL)
+
+  acf_vals <- get_theoretical_acf(model, sigma = sigma, max_lag = max_lag)
+  acvf_vals <- get_theoretical_acvf(model, sigma = sigma, max_lag = max_lag)
+
+  expect_equal(acf_vals, c(1, rep(0, max_lag)))
+  expect_equal(acvf_vals, c(sigma^2, rep(0, max_lag)))
+})
+
+
+# ============================================================
+# Sample ACF Sanity Checks
+# ============================================================
+
+test_that("sample ACF always starts at 1", {
+  n <- 80
+  wn <- rnorm(n)
+
+  model <- gen_arma(n = n, wn = wn, ar_coefs = 0.3, ma_coefs = NULL)
+
+  acf_vals <- get_sample_acf(model, max_lag = 10)
+
+  expect_equal(acf_vals[1], 1)
+})
+
+test_that("default max_lag for sample functions equals floor(n/2)", {
+  n <- 21
+  wn <- rnorm(n)
+
+  model <- gen_arma(n = n, wn = wn, ar_coefs = NULL, ma_coefs = 0.2)
+
+  acf_vals <- get_sample_acf(model, max_lag = NULL)
+  acvf_vals <- get_sample_acvf(model, max_lag = NULL)
+
+  expect_length(acf_vals, floor(n/2) + 1)
+  expect_length(acvf_vals, floor(n/2) + 1)
+})
