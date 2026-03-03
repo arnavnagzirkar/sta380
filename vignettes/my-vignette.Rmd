@@ -18,20 +18,20 @@ knitr::opts_chunk$set(fig.width=7, fig.height=6)
 ```
 
 ```{r setup}
-library(simSeriesACF)
+library(TsimSeriesACF)
 ```
 
-This vignette serves as an example on how to use the functions within the `simSeriesACF` package for simulating autoregressive (AR), moving-average (MA), and autoregressive moving-average (ARMA) models, compute their corresponding theoretical and sample autocovariance (ACVF) and autocorrelation (ACF) function, and helper functions to do so:
+This vignette serves as an example on how to use the functions within the `TsimSeriesACF` package for simulating autoregressive (AR), moving-average (MA), and autoregressive moving-average (ARMA) models, compute their corresponding theoretical and sample autocovariance (ACVF) and autocorrelation (ACF) function, and helper functions to do so:
 
--   Model Generation `simSeriesACF::gen_arma()`,
+-   Model Generation `TsimSeriesACF::gen_arma()`,
 
--   Converting ARMA models into infinite order MA models `simSeriesACF::arma_to_ma()`,
+-   Converting ARMA models into infinite order MA models `TsimSeriesACF::arma_to_ma()`,
 
--   Determining causality of a model `simSeriesACF::is_causal()`, 
+-   Determining causality of a model `TsimSeriesACF::is_causal()`, 
 
--   Computing theoretical ACVF and ACF of a model `simSeriesACF::get_theoretical_acvf()` and `simSeriesACF::get_theoretical_acf()` respectively.
+-   Computing theoretical ACVF and ACF of a model `TsimSeriesACF::get_theoretical_acvf()` and `TsimSeriesACF::get_theoretical_acf()` respectively.
 
--   Computing sample ACVF and ACF of a model `simSeriesACF::get_sample_acvf()` and `simSeriesACF::get_sample_acf()` respectively.
+-   Computing sample ACVF and ACF of a model `TsimSeriesACF::get_sample_acvf()` and `TsimSeriesACF::get_sample_acf()` respectively.
 
 The following examples will be sampling time series data from the following ARMA(1, 2), AR(1), and MA(2) models:
 \[X_t = 0.5X_{t - 1} + w_t + 0.5w_{t - 1} + 0.25w_{t - 2},\]
@@ -40,7 +40,7 @@ The following examples will be sampling time series data from the following ARMA
 
 where $w_t \overset{\text{i.i.d.}}{\sim} N(\mu = 0, \sigma_W^2 = 1).$ 
 
-Note, while we will generate data and compare results for all three models, we omit examples of utilizing the helper functions `simSeriesACF::arma_to_ma()` and `simSeriesACF::is_causal()` for AR and MA models as they are similarly utilized.
+Note, while we will generate data and compare results for all three models, we omit examples of utilizing the helper functions `TsimSeriesACF::arma_to_ma()` and `TsimSeriesACF::is_causal()` for AR and MA models as they are similarly utilized.
 
 ## Generating Time Series Data for all models and plotting them
 

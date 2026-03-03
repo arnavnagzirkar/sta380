@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(simSeriesACF)
+library(TsimSeriesACF)
 
-test_check("simSeriesACF")
+test_check("TsimSeriesACF")

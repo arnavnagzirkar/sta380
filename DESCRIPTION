@@ -1,4 +1,4 @@
-Package: simSeriesACF
+Package: TsimSeriesACF
 Title: Time Series Simulations with Theoretical and Sample Autocovariance
 Version: 0.0.0.9000
 Authors@R: c(
