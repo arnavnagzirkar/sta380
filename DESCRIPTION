@@ -1,0 +1,27 @@
+Package: simSeriesACF
+Title: Time Series Simulations with Theoretical and Sample Autocovariance
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Esteban", "Gonzalez", role = "aut"),
+    person("Daniel", "Cowley", email = "daniel.cowley@mail.utoronto.ca", role = c("aut", "cre")),
+    person("Arnav", "Nagzirkar", role = "aut"),
+    person("Devesh", "Aggarwal", role = "aut"),
+    person("Khushal", "Patel", role = "aut"),
+    person("Sohaib", "Sajid", role = "aut")
+  )
+Description: Computes the theoretical autocovariance/autocorrelation for 
+    user generated time series data. Offers the ability to compare sample values
+    to theoretical values directly.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: 
+    stats,
+    graphics
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr

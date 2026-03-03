@@ -1,0 +1,161 @@
+---
+title: "Time Series Model Generation and ACVF/ACF Computation Vignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Time Series Model Generation and ACVF/ACF Computation Vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: bibliography.bib
+nocite: "@*"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+knitr::opts_chunk$set(fig.width=7, fig.height=6) 
+```
+
+```{r setup}
+library(simSeriesACF)
+```
+
+This vignette serves as an example on how to use the functions within the `simSeriesACF` package for simulating autoregressive (AR), moving-average (MA), and autoregressive moving-average (ARMA) models, compute their corresponding theoretical and sample autocovariance (ACVF) and autocorrelation (ACF) function, and helper functions to do so:
+
+-   Model Generation `simSeriesACF::gen_arma()`,
+
+-   Converting ARMA models into infinite order MA models `simSeriesACF::arma_to_ma()`,
+
+-   Determining causality of a model `simSeriesACF::is_causal()`, 
+
+-   Computing theoretical ACVF and ACF of a model `simSeriesACF::get_theoretical_acvf()` and `simSeriesACF::get_theoretical_acf()` respectively.
+
+-   Computing sample ACVF and ACF of a model `simSeriesACF::get_sample_acvf()` and `simSeriesACF::get_sample_acf()` respectively.
+
+The following examples will be sampling time series data from the following ARMA(1, 2), AR(1), and MA(2) models:
+\[X_t = 0.5X_{t - 1} + w_t + 0.5w_{t - 1} + 0.25w_{t - 2},\]
+\[X_t = 0.5X_{t - 1} + w_t, \text{ and}\]
+\[X_t = w_t + 0.5w_{t - 1} + 0.25w_{t - 2},\]
+
+where $w_t \overset{\text{i.i.d.}}{\sim} N(\mu = 0, \sigma_W^2 = 1).$ 
+
+Note, while we will generate data and compare results for all three models, we omit examples of utilizing the helper functions `simSeriesACF::arma_to_ma()` and `simSeriesACF::is_causal()` for AR and MA models as they are similarly utilized.
+
+## Generating Time Series Data for all models and plotting them
+
+```{r}
+set.seed(1)
+n <- 50
+phi <- 0.5
+theta <- c(0.5, 0.25)
+wn <- rnorm(n)
+
+ar <- gen_arma(n, wn, ar_coefs = phi, ma_coefs = NULL)
+ma <- gen_arma(n, wn, ar_coefs = NULL, ma_coefs = theta)
+arma <- gen_arma(n, wn, ar_coefs = phi, ma_coefs = theta)
+
+plot.ts(ar$data, main = "AR(1) Simulated Data", ylab = "X_t", xlab = "t")
+plot.ts(ma$data, main = "MA(2) Simulated Data", ylab = "X_t", xlab = "t")
+plot.ts(arma$data, main = "ARMA(1,2) Simulated Data", ylab = "X_t", xlab = "t")
+```
+
+## Converting ARMA Model to Infinite-order MA Model
+
+```{r}
+converted_arma <- arma_to_ma(arma, max_lag = 10)
+```
+
+## Checking if Model is Causal
+
+```{r}
+is_causal(arma)
+```
+
+## Calculating Theoretical and Sample ACVFs and ACFs
+
+```{r}
+# For ARMA
+arma_t_acvf <- get_theoretical_acvf(arma, sigma = 1, max_lag = 20)
+arma_t_acf <- get_theoretical_acf(arma, sigma = 1, max_lag = 20)
+arma_s_acvf <- get_sample_acvf(arma, max_lag = 20)
+arma_s_acf <- get_sample_acf(arma, max_lag = 20)
+
+# For AR
+ar_t_acvf <- get_theoretical_acvf(ar, sigma = 1, max_lag = 20)
+ar_t_acf <- get_theoretical_acf(ar, sigma = 1, max_lag = 20)
+ar_s_acvf <- get_sample_acvf(ar, max_lag = 20)
+ar_s_acf <- get_sample_acf(ar, max_lag = 20)
+
+# For MA
+ma_t_acvf <- get_theoretical_acvf(ma, sigma = 1, max_lag = 20)
+ma_t_acf <- get_theoretical_acf(ma, sigma = 1, max_lag = 20)
+ma_s_acvf <- get_sample_acvf(ma, max_lag = 20)
+ma_s_acf <- get_sample_acf(ma, max_lag = 20)
+```
+
+## Plotting Theoretical ACVF and ACF
+
+Here we visualize the sample and theoretical ACF and ACVF for each model.
+
+```{r}
+# function to compare plots
+plot_compare <- function(theoretical, sample, main, ylab) {
+  lags <- 0:(length(theoretical) - 1)
+  plot(lags, theoretical, type = "b", col = "blue", pch = 19,
+       main = main, xlab = "Lag", ylab = ylab,
+       ylim = range(c(theoretical, sample), na.rm = TRUE))
+  lines(lags, sample, type = "b", col = "red", pch = 17)
+  abline(h = 0)
+  legend("topright", legend = c("Theoretical", "Sample"),
+         col = c("blue", "red"), pch = c(19, 17), lty = 1, bty = "n")
+}
+
+# ARMA(1,2) plots
+plot_compare(arma_t_acvf, arma_s_acvf,
+             main = "ARMA(1,2) ACVF: Theoretical vs Sample",
+             ylab = "ACVF")
+
+plot_compare(arma_t_acf, arma_s_acf,
+             main = "ARMA(1,2) ACF: Theoretical vs Sample",
+             ylab = "ACF")
+
+# AR(1) plots
+plot_compare(ar_t_acvf, ar_s_acvf,
+             main = "AR(1) ACVF: Theoretical vs Sample",
+             ylab = "ACVF")
+
+plot_compare(ar_t_acf, ar_s_acf,
+             main = "AR(1) ACF: Theoretical vs Sample",
+             ylab = "ACF")
+
+# MA(2) plots
+plot_compare(ma_t_acvf, ma_s_acvf,
+             main = "MA(2) ACVF: Theoretical vs Sample",
+             ylab = "ACVF")
+
+plot_compare(ma_t_acf, ma_s_acf,
+             main = "MA(2) ACF: Theoretical vs Sample",
+             ylab = "ACF")
+```
+
+## Model Comparisons
+
+We can see the following defining characteristics among the example models:
+
+- The theoretical MA(2) ACVF and ACF go to zero after lag 2, as expected for MA(q) processes.
+
+- The theoretical AR(1) and ARMA(1, 2) ACVF and ACF converge to zero as lag goes to infinity, also expected for AR(p) and ARMA(p, q) processes.
+
+- Sample ACVF and ACF follow their theoretical counterparts, though offset, and exhibit sinusoidal behavior for large lags, reflecting the noise found in samples.
+
+## Generative AI Declaration
+
+Generative AI was used to assist in the writing, testing, and documentation of some functions and test cases.
+
+For the package compilation phase, generative AI was consulted for conventions
+on package compilation, and to scan for typos.
+
+# Bibliography
+
+
