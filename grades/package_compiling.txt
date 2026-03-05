@@ -1,0 +1,5 @@
+You have 2 R project files (probably should remove one.)
+
+No noteworthy errors after running R CMD check -- perfect!
+
+2/2
