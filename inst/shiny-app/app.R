@@ -117,7 +117,8 @@ ui <- fluidPage(
             ),
             numericInput("n_obs", "Number of Observations",
               value = 100, min = 1
-            )
+            ),
+            actionButton("simulate_btn", "Simulate")
           ),
 
           # ── Sub-branch: Input own data ──
