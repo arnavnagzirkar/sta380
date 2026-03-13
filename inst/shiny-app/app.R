@@ -300,12 +300,44 @@ server <- function(input, output, session) {
     
     paste(model_type, "| n =", input$n_obs, "| seed =", input$seed)
   })
+  
+  sim_model <- eventReactive(input$simulate_btn, {
+    ar <- ar_vals()
+    ma <- ma_vals()
+    nv <- noise_vals()
+    
+    validate(
+      need(input$n_obs > 0, "Number of observations must be positive."),
+      need(nv$sigma >= 0, "Sigma must be nonnegative."),
+      need(!(nzchar(trimws(input$ar_coefs)) && is.null(ar)),
+           "AR coefficients must be numeric values separated by commas."),
+      need(!(nzchar(trimws(input$ma_coefs)) && is.null(ma)),
+           "MA coefficients must be numeric values separated by commas.")
+    )
+    
+    set.seed(input$seed)
+    wn <- rnorm(input$n_obs, mean = nv$mu, sd = nv$sigma)
+    
+    gen_arma(
+      n = input$n_obs,
+      wn = wn,
+      ar_coefs = ar,
+      ma_coefs = ma
+    )
+  })
 
-  # ── Placeholder: main plot area ──
+  # ── Placeholder for the main plot area. Added a graph to test simulation 
+  # button
   output$main_plot <- renderPlot({
-    plot.new()
-    text(0.5, 0.5, "Equal split between chosen graphs to display",
-         cex = 1.4, col = "#999999")
+    req(input$sim_mode == "Simulate")
+    req(sim_model())
+    
+    plot.ts(
+      sim_model()$data,
+      main = "Simulated Time Series",
+      ylab = "X_t",
+      xlab = "t"
+    )
   })
 
   # ── Placeholder: coefficient estimates panel ──
