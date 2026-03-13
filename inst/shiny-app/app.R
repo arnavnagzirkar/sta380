@@ -216,10 +216,6 @@ ui <- fluidPage(
 # ── Server ────────────────────────────────────────────────────────────────────
 
 server <- function(input, output, session) {
-  
-  output$sim_status <- renderText({
-    paste("n =", input$n_obs, "| seed =", input$seed)
-  })
 
   # ── Reactive: parse comma-separated AR coefficients ──
   ar_vals <- reactive({
@@ -280,6 +276,29 @@ server <- function(input, output, session) {
       ", where\nW_t ~ N(mu = ", nv$mu, ", sigma = ", nv$sigma, ")"
     )
     formula
+  })
+  
+  output$sim_status <- renderText({
+    ar_txt <- trimws(input$ar_coefs)
+    ma_txt <- trimws(input$ma_coefs)
+    
+    ar <- if (nzchar(ar_txt)) strsplit(ar_txt, ",")[[1]] else character(0)
+    ma <- if (nzchar(ma_txt)) strsplit(ma_txt, ",")[[1]] else character(0)
+    
+    p <- length(ar)
+    q <- length(ma)
+    
+    model_type <- if (p > 0 && q > 0) {
+      paste0("ARMA(", p, ",", q, ")")
+    } else if (p > 0) {
+      paste0("AR(", p, ")")
+    } else if (q > 0) {
+      paste0("MA(", q, ")")
+    } else {
+      "White Noise"
+    }
+    
+    paste(model_type, "| n =", input$n_obs, "| seed =", input$seed)
   })
 
   # ── Placeholder: main plot area ──
