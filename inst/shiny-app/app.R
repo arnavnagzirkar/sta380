@@ -105,6 +105,7 @@ ui <- fluidPage(
 
             tags$label("Currently Simulating:"),
             verbatimTextOutput("formula_preview"),
+            textOutput("sim_status"),
 
             textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
             textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
@@ -215,6 +216,10 @@ ui <- fluidPage(
 # ── Server ────────────────────────────────────────────────────────────────────
 
 server <- function(input, output, session) {
+  
+  output$sim_status <- renderText({
+    paste("n =", input$n_obs, "| seed =", input$seed)
+  })
 
   # ── Reactive: parse comma-separated AR coefficients ──
   ar_vals <- reactive({
