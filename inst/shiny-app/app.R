@@ -3,7 +3,7 @@ library(shiny)
 # ── UI ────────────────────────────────────────────────────────────────────────
 
 ui <- fluidPage(
-
+  
   tags$head(
     tags$style(HTML("
       /* ── Title bar ── */
@@ -16,7 +16,7 @@ ui <- fluidPage(
         font-style: italic;
         margin: -15px -15px 15px -15px;
       }
-
+ 
       /* ── Left sidebar ── */
       .sidebar-panel {
         background-color: #f0f0f0;
@@ -24,7 +24,7 @@ ui <- fluidPage(
         border-right: 1px solid #ccc;
         min-height: 650px;
       }
-
+ 
       /* ── Graph area ── */
       .graph-area {
         min-height: 650px;
@@ -32,7 +32,7 @@ ui <- fluidPage(
         align-items: center;
         justify-content: center;
       }
-
+ 
       /* ── Right stacked panels ── */
       .right-panel {
         border-left: 2px solid #333;
@@ -55,7 +55,7 @@ ui <- fluidPage(
         font-size: 20px;
         margin: 0;
       }
-
+ 
       /* ── Formula preview box ── */
       #formula_preview {
         background-color: #f9f9f9;
@@ -63,8 +63,12 @@ ui <- fluidPage(
         padding: 8px 10px;
         font-size: 13px;
         white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-height: 160px;
+        overflow-y: auto;
       }
-
+ 
       /* ── Misc ── */
       .sidebar-panel label {
         font-weight: normal;
@@ -74,7 +78,7 @@ ui <- fluidPage(
         color: #555;
         margin-top: 6px;
       }
-
+ 
       /* ── Field validation styling ── */
       .input-error-text {
         color: #c0392b;
@@ -82,7 +86,7 @@ ui <- fluidPage(
         margin-top: -8px;
         margin-bottom: 10px;
       }
-
+ 
       .invalid-field .form-control {
         border: 2px solid #c0392b !important;
         background-color: #fff5f5 !important;
@@ -113,160 +117,160 @@ ui <- fluidPage(
       });
     "))
   ),
-
+  
   # ── Title Bar ───────────────────────────────────────────────────────────────
   div(class = "title-bar", "Simulating and Fitting ARMA Models"),
-
+  
   # ── Main 3-Column Layout ────────────────────────────────────────────────────
   fluidRow(
-
+    
     # ── Left Sidebar (controls) ──────────────────────────────────────────────
     column(3,
-      div(class = "sidebar-panel",
-
-        # Top-level toggle: Simulation Inputs vs Graph Output
-        selectInput("modify_target", "What would you like to modify?",
-          choices = c("Simulation Inputs", "Graph Output")
-        ),
-
-        # ── Branch: Simulation Inputs ─────────────────────────────────────
-        conditionalPanel(
-          condition = "input.modify_target == 'Simulation Inputs'",
-
-          selectInput("sim_mode",
-            "Would you like to simulate or input your own data?",
-            choices = c("Simulate", "Input own data")
-          ),
-
-          # ── Sub-branch: Simulate ──
-          conditionalPanel(
-            condition = "input.sim_mode == 'Simulate'",
-
-            tags$label("Currently Simulating:"),
-            withMathJax(uiOutput("formula_preview")),
-            textOutput("sim_status"),
-
-            div(
-              id = "ar_coefs_wrapper",
-              textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
-              div(class = "input-error-text", textOutput("ar_coefs_error"))
-            ),
-            
-            div(
-              id = "ma_coefs_wrapper",
-              textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
-              div(class = "input-error-text", textOutput("ma_coefs_error"))
-            ),
-            
-            div(
-              id = "noise_params_wrapper",
-              textInput(
-                "noise_params",
-                "Noise Parameters: W_t ~ N(mu, sigma)",
-                value = "0, 1"
-              ),
-              div(class = "input-error-text", textOutput("noise_params_error"))
-            ),
-            numericInput("seed", "Insert seed for simulation",
-              value = 1, min = 1
-            ),
-            div(
-              id = "n_obs_wrapper",
-              numericInput("n_obs", "Number of Observations",
-                           value = 100, min = 1, step = 1
-              ),
-              div(class = "input-error-text", textOutput("n_obs_error"))
-            ),
-            actionButton("simulate_btn", "Simulate")
-          ),
-
-          # ── Sub-branch: Input own data ──
-          conditionalPanel(
-            condition = "input.sim_mode == 'Input own data'",
-
-            textAreaInput("user_data",
-              "Paste data separated by commas here:",
-              placeholder = "1, 2, 0, 1.2, ...",
-              rows = 6
-            )
-          )
-        ),
-
-        # ── Branch: Graph Output ──────────────────────────────────────────
-        conditionalPanel(
-          condition = "input.modify_target == 'Graph Output'",
-
-          selectInput("model_criterion", "Model Selection Criteria:",
-            choices = c("AIC", "BIC")
-          ),
-
-          checkboxGroupInput("display_graphs",
-            "Which graphs would you like to display?",
-            choices = c("Data", "ACVF", "ACF"),
-            inline = TRUE
-          ),
-
-          selectInput("graph_modify",
-            "Which graph would you like to modify?",
-            choices = c("Data plot", "ACF / ACVF")
-          ),
-
-          numericInput("max_lag", "Displayed maximum lag",
-            value = 20, min = 1
-          ),
-
-          # ── Sub-branch: Data plot ──
-          conditionalPanel(
-            condition = "input.graph_modify == 'Data plot'",
-
-            numericInput("data_pch",
-              "Select the point symbol for the plot",
-              value = 1, min = 0, max = 25
-            ),
-            textInput("data_col",
-              "Input Color for the point symbol",
-              value = "#FFFFFF"
-            )
-          ),
-
-          # ── Sub-branch: ACF / ACVF ──
-          conditionalPanel(
-            condition = "input.graph_modify == 'ACF / ACVF'",
-
-            selectInput("line_modify",
-              "Which line would you like to modify?",
-              choices = c("Theoretical", "Sample")
-            ),
-            numericInput("line_pch",
-              "Select the point symbol for the line",
-              value = 1, min = 0, max = 25
-            ),
-            textInput("line_col",
-              "Input Color for the line's point symbol",
-              value = "#FFFFFF"
-            )
-          )
-        )
-      )
+           div(class = "sidebar-panel",
+               
+               # Top-level toggle: Simulation Inputs vs Graph Output
+               selectInput("modify_target", "What would you like to modify?",
+                           choices = c("Simulation Inputs", "Graph Output")
+               ),
+               
+               # ── Branch: Simulation Inputs ─────────────────────────────────────
+               conditionalPanel(
+                 condition = "input.modify_target == 'Simulation Inputs'",
+                 
+                 selectInput("sim_mode",
+                             "Would you like to simulate or input your own data?",
+                             choices = c("Simulate", "Input own data")
+                 ),
+                 
+                 # ── Sub-branch: Simulate ──
+                 conditionalPanel(
+                   condition = "input.sim_mode == 'Simulate'",
+                   
+                   tags$label("Currently Simulating:"),
+                   withMathJax(uiOutput("formula_preview")),
+                   textOutput("sim_status"),
+                   
+                   div(
+                     id = "ar_coefs_wrapper",
+                     textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
+                     div(class = "input-error-text", textOutput("ar_coefs_error"))
+                   ),
+                   
+                   div(
+                     id = "ma_coefs_wrapper",
+                     textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
+                     div(class = "input-error-text", textOutput("ma_coefs_error"))
+                   ),
+                   
+                   div(
+                     id = "noise_params_wrapper",
+                     textInput(
+                       "noise_params",
+                       "Noise Parameters: W_t ~ N(mu, sigma)",
+                       value = "0, 1"
+                     ),
+                     div(class = "input-error-text", textOutput("noise_params_error"))
+                   ),
+                   numericInput("seed", "Insert seed for simulation",
+                                value = 1, min = 1
+                   ),
+                   div(
+                     id = "n_obs_wrapper",
+                     numericInput("n_obs", "Number of Observations",
+                                  value = 100, min = 1, step = 1
+                     ),
+                     div(class = "input-error-text", textOutput("n_obs_error"))
+                   ),
+                   actionButton("simulate_btn", "Simulate")
+                 ),
+                 
+                 # ── Sub-branch: Input own data ──
+                 conditionalPanel(
+                   condition = "input.sim_mode == 'Input own data'",
+                   
+                   textAreaInput("user_data",
+                                 "Paste data separated by commas here:",
+                                 placeholder = "1, 2, 0, 1.2, ...",
+                                 rows = 6
+                   )
+                 )
+               ),
+               
+               # ── Branch: Graph Output ──────────────────────────────────────────
+               conditionalPanel(
+                 condition = "input.modify_target == 'Graph Output'",
+                 
+                 selectInput("model_criterion", "Model Selection Criteria:",
+                             choices = c("AIC", "BIC")
+                 ),
+                 
+                 checkboxGroupInput("display_graphs",
+                                    "Which graphs would you like to display?",
+                                    choices = c("Data", "ACVF", "ACF"),
+                                    inline = TRUE
+                 ),
+                 
+                 selectInput("graph_modify",
+                             "Which graph would you like to modify?",
+                             choices = c("Data plot", "ACF / ACVF")
+                 ),
+                 
+                 numericInput("max_lag", "Displayed maximum lag",
+                              value = 20, min = 1
+                 ),
+                 
+                 # ── Sub-branch: Data plot ──
+                 conditionalPanel(
+                   condition = "input.graph_modify == 'Data plot'",
+                   
+                   numericInput("data_pch",
+                                "Select the point symbol for the plot",
+                                value = 1, min = 0, max = 25
+                   ),
+                   textInput("data_col",
+                             "Input Color for the point symbol",
+                             value = "#FFFFFF"
+                   )
+                 ),
+                 
+                 # ── Sub-branch: ACF / ACVF ──
+                 conditionalPanel(
+                   condition = "input.graph_modify == 'ACF / ACVF'",
+                   
+                   selectInput("line_modify",
+                               "Which line would you like to modify?",
+                               choices = c("Theoretical", "Sample")
+                   ),
+                   numericInput("line_pch",
+                                "Select the point symbol for the line",
+                                value = 1, min = 0, max = 25
+                   ),
+                   textInput("line_col",
+                             "Input Color for the line's point symbol",
+                             value = "#FFFFFF"
+                   )
+                 )
+               )
+           )
     ),
-
+    
     # ── Center Graph Area ────────────────────────────────────────────────────
     column(6,
-      div(class = "graph-area",
-        plotOutput("main_plot", height = "600px")
-      )
+           div(class = "graph-area",
+               plotOutput("main_plot", height = "600px")
+           )
     ),
-
+    
     # ── Right Info Panels ────────────────────────────────────────────────────
     column(3,
-      div(class = "right-panel",
-        div(class = "right-panel-top",
-          uiOutput("coef_est_panel")
-        ),
-        div(class = "right-panel-bottom",
-          uiOutput("aic_bic_panel")
-        )
-      )
+           div(class = "right-panel",
+               div(class = "right-panel-top",
+                   uiOutput("coef_est_panel")
+               ),
+               div(class = "right-panel-bottom",
+                   uiOutput("aic_bic_panel")
+               )
+           )
     )
   )
 )
@@ -400,7 +404,7 @@ server <- function(input, output, session) {
       show = is.na(input$n_obs) || input$n_obs < 1 || input$n_obs != floor(input$n_obs)
     ))
   })
-
+  
   # ── Formula preview ──
   output$formula_preview <- renderUI({
     ar <- ar_vals()
@@ -507,7 +511,7 @@ server <- function(input, output, session) {
       ma_coefs = ma
     )
   })
-
+  
   # ── Placeholder for the main plot area. Added a graph to test simulation 
   # button
   output$main_plot <- renderPlot({
@@ -527,12 +531,12 @@ server <- function(input, output, session) {
     )
   })
   
-
+  
   # ── Placeholder: coefficient estimates panel ──
   output$coef_est_panel <- renderUI({
     h4("Coef. Est.")
   })
-
+  
   # ── Placeholder: AIC / BIC panel ──
   output$aic_bic_panel <- renderUI({
     h4("AIC / BIC")
