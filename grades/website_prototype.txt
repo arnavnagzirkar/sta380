@@ -1,0 +1,11 @@
+Looks very good!
+
+I was looking for an updated "AI statement" part on the README.md or the vignette -- this does not appear, so unfortunately I'll need to deduct (-0.1).
+
+Few comments, although I think you already know that they're not working or you may want to edit later on:
+1. "Input own data" doesn't work at all right now.
+2. "Coef. Est." and "AIC/BIC" I believe are placeholders and you'd want to put something in there later?
+3. I would try to put in LaTeX with the Noise Parameters (i.e., format  W_t ~ N(mu, sigma)... I think there might be a stackexchange post out there of me asking how to do this -- this is similar, but this was for input: https://stackoverflow.com/questions/76116091/latex-and-long-text-in-r-shiny-selectinput-selectizeinput)
+
+Quick warning:
+I have on my list that someone named "Sohaib Sajid" is in your group, however, it appears that they have not made any contributions yet. Please let them know that they must contribute to something, WITH their GitHub account linked, or else they may not receive marks for the course project (aka they may get a 0). 
