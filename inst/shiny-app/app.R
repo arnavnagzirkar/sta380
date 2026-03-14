@@ -143,7 +143,7 @@ ui <- fluidPage(
             condition = "input.sim_mode == 'Simulate'",
 
             tags$label("Currently Simulating:"),
-            verbatimTextOutput("formula_preview"),
+            withMathJax(uiOutput("formula_preview")),
             textOutput("sim_status"),
 
             div(
@@ -402,19 +402,19 @@ server <- function(input, output, session) {
   })
 
   # ── Formula preview ──
-  output$formula_preview <- renderText({
+  output$formula_preview <- renderUI({
     ar <- ar_vals()
     ma <- ma_vals()
     nv <- noise_vals()
     
     if (is.null(ar) || is.null(ma) || is.null(nv)) {
-      return("Please enter valid numeric inputs to preview the model.")
+      return(p("Please enter valid numeric inputs to preview the model."))
     }
     
     ar_part <- ""
     if (length(ar) > 0) {
       ar_terms <- vapply(seq_along(ar), function(i) {
-        paste0(ar[i], "X_{t - ", i, "}")
+        paste0(ar[i], "X_{t-", i, "}")
       }, character(1))
       ar_part <- paste(ar_terms, collapse = " + ")
     }
@@ -423,21 +423,29 @@ server <- function(input, output, session) {
     if (length(ma) > 0) {
       ma_terms <- vapply(seq_along(ma), function(i) {
         if (ma[i] >= 0) {
-          paste0("+ ", ma[i], "W_{t - ", i, "}")
+          paste0("+ ", ma[i], "W_{t-", i, "}")
         } else {
-          paste0("- ", abs(ma[i]), "W_{t - ", i, "}")
+          paste0("- ", abs(ma[i]), "W_{t-", i, "}")
         }
       }, character(1))
       ma_part <- paste(ma_terms, collapse = " ")
     }
     
-    paste0(
-      "X_t = ",
+    lhs <- "X_t ="
+    rhs <- paste0(
       if (nzchar(ar_part)) paste0(ar_part, " + ") else "",
       "W_t",
-      if (nzchar(ma_part)) paste0(" ", ma_part) else "",
-      ", where\nW_t ~ N(mu = ", nv$mu, ", sigma = ", nv$sigma, ")"
+      if (nzchar(ma_part)) paste0(" ", ma_part) else ""
     )
+    noise_line <- paste0("W_t \\sim \\mathcal{N}(\\mu = ", nv$mu, ",\\, \\sigma = ", nv$sigma, ")")
+    
+    # Wrap in MathJax display-mode delimiters
+    latex_str <- paste0(
+      "$$", lhs, " ", rhs, "$$",
+      "$$", noise_line, "$$"
+    )
+    
+    withMathJax(HTML(latex_str))
   })
   
   output$sim_status <- renderText({
