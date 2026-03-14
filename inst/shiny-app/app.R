@@ -4,76 +4,115 @@ library(shiny)
 
 ui <- fluidPage(
 
-  tags$head(tags$style(HTML("
-    /* ── Title bar ── */
-    .title-bar {
-      background-color: #2c3e50;
-      color: #d4a017;
-      padding: 14px 24px;
-      font-size: 22px;
-      font-weight: bold;
-      font-style: italic;
-      margin: -15px -15px 15px -15px;
-    }
+  tags$head(
+    tags$style(HTML("
+      /* ── Title bar ── */
+      .title-bar {
+        background-color: #2c3e50;
+        color: #d4a017;
+        padding: 14px 24px;
+        font-size: 22px;
+        font-weight: bold;
+        font-style: italic;
+        margin: -15px -15px 15px -15px;
+      }
 
-    /* ── Left sidebar ── */
-    .sidebar-panel {
-      background-color: #f0f0f0;
-      padding: 15px;
-      border-right: 1px solid #ccc;
-      min-height: 650px;
-    }
+      /* ── Left sidebar ── */
+      .sidebar-panel {
+        background-color: #f0f0f0;
+        padding: 15px;
+        border-right: 1px solid #ccc;
+        min-height: 650px;
+      }
 
-    /* ── Graph area ── */
-    .graph-area {
-      min-height: 650px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+      /* ── Graph area ── */
+      .graph-area {
+        min-height: 650px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-    /* ── Right stacked panels ── */
-    .right-panel {
-      border-left: 2px solid #333;
-      min-height: 650px;
-      display: flex;
-      flex-direction: column;
-    }
-    .right-panel-top, .right-panel-bottom {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px;
-    }
-    .right-panel-top {
-      border-bottom: 2px solid #333;
-    }
-    .right-panel-top h4, .right-panel-bottom h4 {
-      color: #555;
-      font-size: 20px;
-      margin: 0;
-    }
+      /* ── Right stacked panels ── */
+      .right-panel {
+        border-left: 2px solid #333;
+        min-height: 650px;
+        display: flex;
+        flex-direction: column;
+      }
+      .right-panel-top, .right-panel-bottom {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+      }
+      .right-panel-top {
+        border-bottom: 2px solid #333;
+      }
+      .right-panel-top h4, .right-panel-bottom h4 {
+        color: #555;
+        font-size: 20px;
+        margin: 0;
+      }
 
-    /* ── Formula preview box ── */
-    #formula_preview {
-      background-color: #f9f9f9;
-      border: 1px solid #ddd;
-      padding: 8px 10px;
-      font-size: 13px;
-      white-space: pre-wrap;
-    }
+      /* ── Formula preview box ── */
+      #formula_preview {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        padding: 8px 10px;
+        font-size: 13px;
+        white-space: pre-wrap;
+      }
 
-    /* ── Misc ── */
-    .sidebar-panel label {
-      font-weight: normal;
-      color: #555;
-    }
-    .sidebar-panel .control-label {
-      color: #555;
-      margin-top: 6px;
-    }
-  "))),
+      /* ── Misc ── */
+      .sidebar-panel label {
+        font-weight: normal;
+        color: #555;
+      }
+      .sidebar-panel .control-label {
+        color: #555;
+        margin-top: 6px;
+      }
+
+      /* ── Field validation styling ── */
+      .input-error-text {
+        color: #c0392b;
+        font-size: 12px;
+        margin-top: -8px;
+        margin-bottom: 10px;
+      }
+
+      .invalid-field .form-control {
+        border: 2px solid #c0392b !important;
+        background-color: #fff5f5 !important;
+      }
+      
+      .invalid-field label {
+        color: #c0392b;
+      }
+    ")),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('toggleInputError', function(message) {
+    
+        var wrapper = document.getElementById(message.id);
+        if (!wrapper) return;
+    
+        var input = wrapper.querySelector('.form-control');
+        if (!input) return;
+    
+        if (message.show) {
+          wrapper.classList.add('invalid-field');
+          input.style.border = '2px solid #c0392b';
+          input.style.background = '#fff5f5';
+        } else {
+          wrapper.classList.remove('invalid-field');
+          input.style.border = '';
+          input.style.background = '';
+        }
+      });
+    "))
+  ),
 
   # ── Title Bar ───────────────────────────────────────────────────────────────
   div(class = "title-bar", "Simulating and Fitting ARMA Models"),
@@ -107,17 +146,36 @@ ui <- fluidPage(
             verbatimTextOutput("formula_preview"),
             textOutput("sim_status"),
 
-            textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
-            textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
-            textInput("noise_params",
-              "Noise Parameters: W_t ~ N(mu, sigma)",
-              value = "0, 1"
+            div(
+              id = "ar_coefs_wrapper",
+              textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
+              div(class = "input-error-text", textOutput("ar_coefs_error"))
+            ),
+            
+            div(
+              id = "ma_coefs_wrapper",
+              textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
+              div(class = "input-error-text", textOutput("ma_coefs_error"))
+            ),
+            
+            div(
+              id = "noise_params_wrapper",
+              textInput(
+                "noise_params",
+                "Noise Parameters: W_t ~ N(mu, sigma)",
+                value = "0, 1"
+              ),
+              div(class = "input-error-text", textOutput("noise_params_error"))
             ),
             numericInput("seed", "Insert seed for simulation",
               value = 1, min = 1
             ),
-            numericInput("n_obs", "Number of Observations",
-              value = 100, min = 1
+            div(
+              id = "n_obs_wrapper",
+              numericInput("n_obs", "Number of Observations",
+                           value = 100, min = 1, step = 1
+              ),
+              div(class = "input-error-text", textOutput("n_obs_error"))
             ),
             actionButton("simulate_btn", "Simulate")
           ),
@@ -216,28 +274,131 @@ ui <- fluidPage(
 # ── Server ────────────────────────────────────────────────────────────────────
 
 server <- function(input, output, session) {
-
-  # ── Reactive: parse comma-separated AR coefficients ──
+  # Parse comma-separated numeric input
+  parse_num_vector <- function(x) {
+    x <- trimws(x)
+    
+    # blank input = no coefficients
+    if (!nzchar(x)) {
+      return(numeric(0))
+    }
+    
+    parts <- trimws(strsplit(x, ",")[[1]])
+    
+    # reject empty entries like "0.5,,0.2" or "0.5,"
+    if (any(parts == "")) {
+      return(NULL)
+    }
+    
+    vals <- suppressWarnings(as.numeric(parts))
+    
+    # reject non-numeric values
+    if (any(is.na(vals))) {
+      return(NULL)
+    }
+    
+    vals
+  }
+  
+  # Parse noise parameters entered as: mu, sigma
+  parse_noise_params <- function(x) {
+    x <- trimws(x)
+    
+    if (!nzchar(x)) {
+      return(NULL)
+    }
+    
+    parts <- trimws(strsplit(x, ",")[[1]])
+    
+    # must have exactly two values
+    if (length(parts) != 2 || any(parts == "")) {
+      return(NULL)
+    }
+    
+    vals <- suppressWarnings(as.numeric(parts))
+    
+    if (any(is.na(vals))) {
+      return(NULL)
+    }
+    
+    list(mu = vals[1], sigma = vals[2])
+  }
   ar_vals <- reactive({
-    txt <- trimws(input$ar_coefs)
-    if (!nzchar(txt)) return(NULL)
-    suppressWarnings(as.numeric(strsplit(txt, ",")[[1]]))
+    parse_num_vector(input$ar_coefs)
   })
-
-  # ── Reactive: parse comma-separated MA coefficients ──
+  
   ma_vals <- reactive({
-    txt <- trimws(input$ma_coefs)
-    if (!nzchar(txt)) return(NULL)
-    suppressWarnings(as.numeric(strsplit(txt, ",")[[1]]))
+    parse_num_vector(input$ma_coefs)
   })
-
-  # ── Reactive: parse noise parameters (mu, sigma) ──
+  
   noise_vals <- reactive({
-    txt <- trimws(input$noise_params)
-    parts <- strsplit(txt, ",")[[1]]
-    mu <- if (length(parts) >= 1) as.numeric(trimws(parts[1])) else 0
-    sigma <- if (length(parts) >= 2) as.numeric(trimws(parts[2])) else 1
-    list(mu = mu, sigma = sigma)
+    parse_noise_params(input$noise_params)
+  })
+  
+  output$ar_coefs_error <- renderText({
+    ar <- ar_vals()
+    
+    if (is.null(ar)) {
+      "Enter numbers separated by commas only."
+    } else {
+      ""
+    }
+  })
+  
+  output$ma_coefs_error <- renderText({
+    ma <- ma_vals()
+    
+    if (is.null(ma)) {
+      "Enter numbers separated by commas only."
+    } else {
+      ""
+    }
+  })
+  
+  output$noise_params_error <- renderText({
+    nv <- noise_vals()
+    
+    if (is.null(nv)) {
+      "Enter exactly two numbers: mu, sigma"
+    } else if (nv$sigma <= 0) {
+      "Sigma must be greater than 0."
+    } else {
+      ""
+    }
+  })
+  
+  output$n_obs_error <- renderText({
+    if (is.na(input$n_obs)) {
+      "Enter a whole number greater than or equal to 1."
+    } else if (input$n_obs < 1 || input$n_obs != floor(input$n_obs)) {
+      "Number of observations must be a whole number ≥ 1."
+    } else {
+      ""
+    }
+  })
+  
+  observe({
+    session$sendCustomMessage("toggleInputError", list(
+      id = "ar_coefs_wrapper",
+      show = is.null(ar_vals())
+    ))
+    
+    nv <- noise_vals()
+    
+    session$sendCustomMessage("toggleInputError", list(
+      id = "ma_coefs_wrapper",
+      show = is.null(ma_vals())
+    ))
+    
+    session$sendCustomMessage("toggleInputError", list(
+      id = "noise_params_wrapper",
+      show = is.null(nv) || (!is.null(nv) && nv$sigma <= 0)
+    ))
+    
+    session$sendCustomMessage("toggleInputError", list(
+      id = "n_obs_wrapper",
+      show = is.na(input$n_obs) || input$n_obs < 1 || input$n_obs != floor(input$n_obs)
+    ))
   })
 
   # ── Formula preview ──
@@ -245,19 +406,21 @@ server <- function(input, output, session) {
     ar <- ar_vals()
     ma <- ma_vals()
     nv <- noise_vals()
-
-    # Build AR terms
+    
+    if (is.null(ar) || is.null(ma) || is.null(nv)) {
+      return("Please enter valid numeric inputs to preview the model.")
+    }
+    
     ar_part <- ""
-    if (!is.null(ar) && length(ar) > 0) {
+    if (length(ar) > 0) {
       ar_terms <- vapply(seq_along(ar), function(i) {
         paste0(ar[i], "X_{t - ", i, "}")
       }, character(1))
       ar_part <- paste(ar_terms, collapse = " + ")
     }
-
-    # Build MA terms with sign
+    
     ma_part <- ""
-    if (!is.null(ma) && length(ma) > 0) {
+    if (length(ma) > 0) {
       ma_terms <- vapply(seq_along(ma), function(i) {
         if (ma[i] >= 0) {
           paste0("+ ", ma[i], "W_{t - ", i, "}")
@@ -267,23 +430,23 @@ server <- function(input, output, session) {
       }, character(1))
       ma_part <- paste(ma_terms, collapse = " ")
     }
-
-    formula <- paste0(
+    
+    paste0(
       "X_t = ",
       if (nzchar(ar_part)) paste0(ar_part, " + ") else "",
       "W_t",
       if (nzchar(ma_part)) paste0(" ", ma_part) else "",
       ", where\nW_t ~ N(mu = ", nv$mu, ", sigma = ", nv$sigma, ")"
     )
-    formula
   })
   
   output$sim_status <- renderText({
-    ar_txt <- trimws(input$ar_coefs)
-    ma_txt <- trimws(input$ma_coefs)
+    ar <- ar_vals()
+    ma <- ma_vals()
     
-    ar <- if (nzchar(ar_txt)) strsplit(ar_txt, ",")[[1]] else character(0)
-    ma <- if (nzchar(ma_txt)) strsplit(ma_txt, ",")[[1]] else character(0)
+    if (is.null(ar) || is.null(ma)) {
+      return("Invalid AR/MA coefficient input.")
+    }
     
     p <- length(ar)
     q <- length(ma)
@@ -307,16 +470,27 @@ server <- function(input, output, session) {
     nv <- noise_vals()
     
     validate(
-      need(input$n_obs > 0, "Number of observations must be positive."),
-      need(nv$sigma >= 0, "Sigma must be nonnegative."),
-      need(!(nzchar(trimws(input$ar_coefs)) && is.null(ar)),
-           "AR coefficients must be numeric values separated by commas."),
-      need(!(nzchar(trimws(input$ma_coefs)) && is.null(ma)),
-           "MA coefficients must be numeric values separated by commas.")
+      need(!is.null(ar),
+           "AR coefficients must be numeric values separated by commas, e.g. 0.5, -0.2"),
+      need(!is.null(ma),
+           "MA coefficients must be numeric values separated by commas, e.g. 0.3, 0.1"),
+      need(!is.null(nv),
+           "Noise parameters must be entered as: mu, sigma   (example: 0, 1)"),
+      need(input$n_obs >= 1 && input$n_obs == floor(input$n_obs),
+           "Number of observations must be a whole number ≥ 1."),
+      need(input$seed >= 1,
+           "Seed must be at least 1."),
+      need(nv$sigma > 0,
+           "Sigma must be greater than 0.")
     )
     
     set.seed(input$seed)
-    wn <- rnorm(input$n_obs, mean = nv$mu, sd = nv$sigma)
+    
+    wn <- rnorm(
+      n = input$n_obs,
+      mean = nv$mu,
+      sd = nv$sigma
+    )
     
     gen_arma(
       n = input$n_obs,
@@ -330,15 +504,21 @@ server <- function(input, output, session) {
   # button
   output$main_plot <- renderPlot({
     req(input$sim_mode == "Simulate")
-    req(sim_model())
+    
+    model <- sim_model()
+    
+    validate(
+      need(!is.null(model), "Click 'Simulate' after entering valid inputs.")
+    )
     
     plot.ts(
-      sim_model()$data,
+      model$data,
       main = "Simulated Time Series",
       ylab = "X_t",
       xlab = "t"
     )
   })
+  
 
   # ── Placeholder: coefficient estimates panel ──
   output$coef_est_panel <- renderUI({
