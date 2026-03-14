@@ -5,4 +5,7 @@ randomly generated time series.
 
 See the proposal for more details.
 
-Current phase of production: BASIC IMPLEMENTATION 
+Current phase of production: WEBSITE PROTOTYPE. 
+
+Link: https://019ceda7-9826-0311-2916-aa63adbe0a29.share.connect.posit.cloud/
+
