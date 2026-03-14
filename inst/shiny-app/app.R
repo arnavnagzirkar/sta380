@@ -7,6 +7,19 @@ ui <- fluidPage(
   
   tags$head(
     tags$style(HTML("
+      /* ── Full-viewport layout ── */
+      html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      .container-fluid {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+      }
+ 
       /* ── Title bar ── */
       .title-bar {
         background-color: #2c3e50;
@@ -15,7 +28,23 @@ ui <- fluidPage(
         font-size: 22px;
         font-weight: bold;
         font-style: italic;
-        margin: -15px -15px 15px -15px;
+        flex-shrink: 0;
+      }
+ 
+      /* ── Main row fills remaining height ── */
+      .main-row {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: row;
+        margin: 0 !important;
+      }
+      .main-row > [class*='col-'] {
+        float: none !important;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 0;
       }
  
       /* ── Left sidebar ── */
@@ -23,21 +52,45 @@ ui <- fluidPage(
         background-color: #f0f0f0;
         padding: 15px;
         border-right: 1px solid #ccc;
-        min-height: 650px;
+        height: 100%;
+        overflow-y: auto;
+        box-sizing: border-box;
       }
  
       /* ── Graph area ── */
       .graph-area {
-        min-height: 650px;
+        height: 100%;
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        overflow: hidden;
+      }
+      /* uiOutput wrapper must also be a flex column */
+      .graph-area > .shiny-html-output {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      /* Each plot wrapper stretches equally */
+      .graph-area .plot-wrapper {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .graph-area .shiny-plot-output {
+        width: 100% !important;
+        height: 100% !important;
+        flex: 1 1 0;
+        min-height: 0;
       }
  
       /* ── Right stacked panels ── */
       .right-panel {
         border-left: 2px solid #333;
-        min-height: 650px;
+        height: 100%;
         display: flex;
         flex-direction: column;
       }
@@ -47,6 +100,7 @@ ui <- fluidPage(
         align-items: center;
         justify-content: center;
         padding: 10px;
+        min-height: 0;
       }
       .right-panel-top {
         border-bottom: 2px solid #333;
@@ -87,12 +141,10 @@ ui <- fluidPage(
         margin-top: -8px;
         margin-bottom: 10px;
       }
- 
       .invalid-field .form-control {
         border: 2px solid #c0392b !important;
         background-color: #fff5f5 !important;
       }
-      
       .invalid-field label {
         color: #c0392b;
       }
@@ -123,156 +175,157 @@ ui <- fluidPage(
   div(class = "title-bar", "Simulating and Fitting ARMA Models"),
   
   # ── Main 3-Column Layout ────────────────────────────────────────────────────
-  fluidRow(
-    
-    # ── Left Sidebar (controls) ──────────────────────────────────────────────
-    column(3,
-           div(class = "sidebar-panel",
-               
-               # Top-level toggle: Simulation Inputs vs Graph Output
-               selectInput("modify_target", "What would you like to modify?",
-                           choices = c("Simulation Inputs", "Graph Output")
-               ),
-               
-               # ── Branch: Simulation Inputs ─────────────────────────────────────
-               conditionalPanel(
-                 condition = "input.modify_target == 'Simulation Inputs'",
-                 
-                 selectInput("sim_mode",
-                             "Would you like to simulate or input your own data?",
-                             choices = c("Simulate", "Input own data")
-                 ),
-                 
-                 # ── Sub-branch: Simulate ──
-                 conditionalPanel(
-                   condition = "input.sim_mode == 'Simulate'",
-                   
-                   tags$label("Currently Simulating:"),
-                   withMathJax(uiOutput("formula_preview")),
-                   textOutput("sim_status"),
-                   
-                   div(
-                     id = "ar_coefs_wrapper",
-                     textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
-                     div(class = "input-error-text", textOutput("ar_coefs_error"))
-                   ),
-                   
-                   div(
-                     id = "ma_coefs_wrapper",
-                     textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
-                     div(class = "input-error-text", textOutput("ma_coefs_error"))
-                   ),
-                   
-                   div(
-                     id = "noise_params_wrapper",
-                     textInput(
-                       "noise_params",
-                       "Noise Parameters: W_t ~ N(mu, sigma)",
-                       value = "0, 1"
-                     ),
-                     div(class = "input-error-text", textOutput("noise_params_error"))
-                   ),
-                   numericInput("seed", "Insert seed for simulation",
-                                value = 1, min = 1
-                   ),
-                   div(
-                     id = "n_obs_wrapper",
-                     numericInput("n_obs", "Number of Observations",
-                                  value = 100, min = 1, step = 1
-                     ),
-                     div(class = "input-error-text", textOutput("n_obs_error"))
-                   ),
-                   actionButton("simulate_btn", "Simulate")
-                 ),
-                 
-                 # ── Sub-branch: Input own data ──
-                 conditionalPanel(
-                   condition = "input.sim_mode == 'Input own data'",
-                   
-                   textAreaInput("user_data",
-                                 "Paste data separated by commas here:",
-                                 placeholder = "1, 2, 0, 1.2, ...",
-                                 rows = 6
-                   )
-                 )
-               ),
-               
-               # ── Branch: Graph Output ──────────────────────────────────────────
-               conditionalPanel(
-                 condition = "input.modify_target == 'Graph Output'",
-                 
-                 selectInput("model_criterion", "Model Selection Criteria:",
-                             choices = c("AIC", "BIC")
-                 ),
-                 
-                 checkboxGroupInput("display_graphs",
-                                    "Which graphs would you like to display?",
-                                    choices = c("Data", "ACVF", "ACF"),
-                                    inline = TRUE
-                 ),
-                 
-                 selectInput("graph_modify",
-                             "Which graph would you like to modify?",
-                             choices = c("Data plot", "ACF / ACVF")
-                 ),
-                 
-                 numericInput("max_lag", "Displayed maximum lag",
-                              value = 20, min = 1
-                 ),
-                 
-                 # ── Sub-branch: Data plot ──
-                 conditionalPanel(
-                   condition = "input.graph_modify == 'Data plot'",
-                   
-                   numericInput("data_pch",
-                                "Select the point symbol for the plot",
-                                value = 1, min = 0, max = 25
-                   ),
-                   textInput("data_col",
-                             "Input Color for the point symbol",
-                             value = "#FFFFFF"
-                   )
-                 ),
-                 
-                 # ── Sub-branch: ACF / ACVF ──
-                 conditionalPanel(
-                   condition = "input.graph_modify == 'ACF / ACVF'",
-                   
-                   selectInput("line_modify",
-                               "Which line would you like to modify?",
-                               choices = c("Theoretical", "Sample")
-                   ),
-                   numericInput("line_pch",
-                                "Select the point symbol for the line",
-                                value = 1, min = 0, max = 25
-                   ),
-                   textInput("line_col",
-                             "Input Color for the line's point symbol",
-                             value = "#FFFFFF"
-                   )
-                 )
-               )
+  fluidRow(class = "main-row",
+           
+           # ── Left Sidebar (controls) ──────────────────────────────────────────────
+           column(3,
+                  div(class = "sidebar-panel",
+                      
+                      # Top-level toggle: Simulation Inputs vs Graph Output
+                      selectInput("modify_target", "What would you like to modify?",
+                                  choices = c("Simulation Inputs", "Graph Output")
+                      ),
+                      
+                      # ── Branch: Simulation Inputs ─────────────────────────────────────
+                      conditionalPanel(
+                        condition = "input.modify_target == 'Simulation Inputs'",
+                        
+                        selectInput("sim_mode",
+                                    "Would you like to simulate or input your own data?",
+                                    choices = c("Simulate", "Input own data")
+                        ),
+                        
+                        # ── Sub-branch: Simulate ──
+                        conditionalPanel(
+                          condition = "input.sim_mode == 'Simulate'",
+                          
+                          tags$label("Currently Simulating:"),
+                          withMathJax(uiOutput("formula_preview")),
+                          textOutput("sim_status"),
+                          
+                          div(
+                            id = "ar_coefs_wrapper",
+                            textInput("ar_coefs", "AR Coefficients:", value = "0.5"),
+                            div(class = "input-error-text", textOutput("ar_coefs_error"))
+                          ),
+                          
+                          div(
+                            id = "ma_coefs_wrapper",
+                            textInput("ma_coefs", "MA Coefficients:", value = "0.1"),
+                            div(class = "input-error-text", textOutput("ma_coefs_error"))
+                          ),
+                          
+                          div(
+                            id = "noise_params_wrapper",
+                            textInput(
+                              "noise_params",
+                              "Noise Parameters: W_t ~ N(mu, sigma)",
+                              value = "0, 1"
+                            ),
+                            div(class = "input-error-text", textOutput("noise_params_error"))
+                          ),
+                          numericInput("seed", "Insert seed for simulation",
+                                       value = 1, min = 1
+                          ),
+                          div(
+                            id = "n_obs_wrapper",
+                            numericInput("n_obs", "Number of Observations",
+                                         value = 100, min = 1, step = 1
+                            ),
+                            div(class = "input-error-text", textOutput("n_obs_error"))
+                          ),
+                          actionButton("simulate_btn", "Simulate")
+                        ),
+                        
+                        # ── Sub-branch: Input own data ──
+                        conditionalPanel(
+                          condition = "input.sim_mode == 'Input own data'",
+                          
+                          textAreaInput("user_data",
+                                        "Paste data separated by commas here:",
+                                        placeholder = "1, 2, 0, 1.2, ...",
+                                        rows = 6
+                          )
+                        )
+                      ),
+                      
+                      # ── Branch: Graph Output ──────────────────────────────────────────
+                      conditionalPanel(
+                        condition = "input.modify_target == 'Graph Output'",
+                        
+                        selectInput("model_criterion", "Model Selection Criteria:",
+                                    choices = c("AIC", "BIC")
+                        ),
+                        
+                        checkboxGroupInput("display_graphs",
+                                           "Which graphs would you like to display?",
+                                           choices = c("Data", "ACVF", "ACF"),
+                                           selected = c("Data", "ACVF", "ACF"),
+                                           inline = TRUE
+                        ),
+                        
+                        selectInput("graph_modify",
+                                    "Which graph would you like to modify?",
+                                    choices = c("Data plot", "ACF / ACVF")
+                        ),
+                        
+                        numericInput("max_lag", "Displayed maximum lag",
+                                     value = 20, min = 1
+                        ),
+                        
+                        # ── Sub-branch: Data plot ──
+                        conditionalPanel(
+                          condition = "input.graph_modify == 'Data plot'",
+                          
+                          numericInput("data_pch",
+                                       "Select the point symbol for the plot",
+                                       value = 1, min = 0, max = 25
+                          ),
+                          textInput("data_col",
+                                    "Input Color for the point symbol",
+                                    value = "#FFFFFF"
+                          )
+                        ),
+                        
+                        # ── Sub-branch: ACF / ACVF ──
+                        conditionalPanel(
+                          condition = "input.graph_modify == 'ACF / ACVF'",
+                          
+                          selectInput("line_modify",
+                                      "Which line would you like to modify?",
+                                      choices = c("Theoretical", "Sample")
+                          ),
+                          numericInput("line_pch",
+                                       "Select the point symbol for the line",
+                                       value = 1, min = 0, max = 25
+                          ),
+                          textInput("line_col",
+                                    "Input Color for the line's point symbol",
+                                    value = "#FFFFFF"
+                          )
+                        )
+                      )
+                  )
+           ),
+           
+           # ── Center Graph Area ────────────────────────────────────────────────────
+           column(6,
+                  div(class = "graph-area",
+                      uiOutput("plots_ui")
+                  )
+           ),
+           
+           # ── Right Info Panels ────────────────────────────────────────────────────
+           column(3,
+                  div(class = "right-panel",
+                      div(class = "right-panel-top",
+                          uiOutput("coef_est_panel")
+                      ),
+                      div(class = "right-panel-bottom",
+                          uiOutput("aic_bic_panel")
+                      )
+                  )
            )
-    ),
-    
-    # ── Center Graph Area ────────────────────────────────────────────────────
-    column(6,
-           div(class = "graph-area",
-               plotOutput("main_plot", height = "600px")
-           )
-    ),
-    
-    # ── Right Info Panels ────────────────────────────────────────────────────
-    column(3,
-           div(class = "right-panel",
-               div(class = "right-panel-top",
-                   uiOutput("coef_est_panel")
-               ),
-               div(class = "right-panel-bottom",
-                   uiOutput("aic_bic_panel")
-               )
-           )
-    )
   )
 )
 
@@ -513,25 +566,167 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Placeholder for the main plot area. Added a graph to test simulation 
-  # button
-  output$main_plot <- renderPlot({
+  # ── Dynamic plot UI: show only selected graphs ──────────────────────────
+  output$plots_ui <- renderUI({
+    selected <- input$display_graphs
+    if (is.null(selected) || length(selected) == 0) {
+      return(div(style = "color:#888; font-style:italic; text-align:center; padding-top:40px;",
+                 "No graphs selected. Choose at least one in Graph Output."))
+    }
+    
+    plot_list <- list()
+    if ("Data" %in% selected)
+      plot_list <- c(plot_list, list(
+        div(class = "plot-wrapper", plotOutput("plot_data", height = "100%", width = "100%"))
+      ))
+    if ("ACVF" %in% selected)
+      plot_list <- c(plot_list, list(
+        div(class = "plot-wrapper", plotOutput("plot_acvf", height = "100%", width = "100%"))
+      ))
+    if ("ACF" %in% selected)
+      plot_list <- c(plot_list, list(
+        uiOutput("acf_causality_warning"),
+        div(class = "plot-wrapper", plotOutput("plot_acf", height = "100%", width = "100%"))
+      ))
+    
+    do.call(tagList, plot_list)
+  })
+  
+  # ── Data plot ──────────────────────────────────────────────────────────
+  output$plot_data <- renderPlot({
+    req("Data" %in% input$display_graphs)
     req(input$sim_mode == "Simulate")
-    
     model <- sim_model()
-    
-    validate(
-      need(!is.null(model), "Click 'Simulate' after entering valid inputs.")
-    )
+    validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
     
     plot.ts(
       model$data,
       main = "Simulated Time Series",
-      ylab = "X_t",
+      ylab = expression(X[t]),
       xlab = "t"
     )
   })
   
+  # ── ACVF plot (theoretical + sample) ──────────────────────────────────
+  output$plot_acvf <- renderPlot({
+    req("ACVF" %in% input$display_graphs)
+    req(input$sim_mode == "Simulate")
+    model <- sim_model()
+    validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
+    
+    nv      <- noise_vals()
+    sigma   <- if (!is.null(nv)) nv$sigma else 1
+    max_lag <- input$max_lag
+    lags    <- 0:max_lag
+    
+    theo_acvf   <- get_theoretical_acvf(model, sigma = sigma, max_lag = max_lag)
+    sample_acvf <- get_sample_acvf(model, max_lag = max_lag)
+    
+    y_range <- range(c(theo_acvf, sample_acvf), na.rm = TRUE)
+    
+    plot(lags, theo_acvf,
+         type = "b",
+         pch  = input$line_pch,
+         col  = "#2c7bb6",
+         lwd  = 2,
+         ylim = y_range,
+         main = "ACVF: Theoretical vs Sample",
+         xlab = "Lag",
+         ylab = expression(gamma(h))
+    )
+    lines(lags, sample_acvf,
+          type = "b",
+          pch  = input$line_pch,
+          col  = "#d7191c",
+          lwd  = 2,
+          lty  = 2
+    )
+    abline(h = 0, col = "grey60", lty = 3)
+    legend("topright",
+           legend = c("Theoretical", "Sample"),
+           col    = c("#2c7bb6", "#d7191c"),
+           lty    = c(1, 2),
+           pch    = input$line_pch,
+           lwd    = 2,
+           bty    = "n"
+    )
+  })
+  
+  # ── ACF plot (theoretical + sample) ───────────────────────────────────
+  output$plot_acf <- renderPlot({
+    req("ACF" %in% input$display_graphs)
+    req(input$sim_mode == "Simulate")
+    model <- sim_model()
+    validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
+    
+    nv      <- noise_vals()
+    sigma   <- if (!is.null(nv)) nv$sigma else 1
+    max_lag <- input$max_lag
+    lags    <- 0:max_lag
+    
+    invisible(capture.output(
+      theo_acf <- get_theoretical_acf(model, sigma = sigma, max_lag = max_lag)
+    ))
+    sample_acf <- get_sample_acf(model, max_lag = max_lag)
+    
+    # 95% confidence bounds (Bartlett's approximation)
+    n       <- model$n
+    ci_bound <- 1.96 / sqrt(n)
+    y_range <- range(c(theo_acf, sample_acf, ci_bound, -ci_bound), na.rm = TRUE)
+    
+    plot(lags, theo_acf,
+         type = "b",
+         pch  = input$line_pch,
+         col  = "#2c7bb6",
+         lwd  = 2,
+         ylim = y_range,
+         main = "ACF: Theoretical vs Sample",
+         xlab = "Lag",
+         ylab = expression(rho(h))
+    )
+    lines(lags, sample_acf,
+          type = "b",
+          pch  = input$line_pch,
+          col  = "#d7191c",
+          lwd  = 2,
+          lty  = 2
+    )
+    abline(h =  0,        col = "grey60",  lty = 3)
+    abline(h =  ci_bound, col = "grey40",  lty = 2)
+    abline(h = -ci_bound, col = "grey40",  lty = 2)
+    legend("topright",
+           legend = c("Theoretical", "Sample", "95% CI"),
+           col    = c("#2c7bb6", "#d7191c", "grey40"),
+           lty    = c(1, 2, 2),
+           pch    = c(input$line_pch, input$line_pch, NA),
+           lwd    = 2,
+           bty    = "n"
+    )
+  })
+  
+  
+  # ── Causality reactive ────────────────────────────────────────────────
+  acf_is_causal <- reactive({
+    req(input$sim_mode == "Simulate")
+    model <- tryCatch(sim_model(), error = function(e) NULL)
+    if (is.null(model)) return(TRUE)
+    is_causal(model)
+  })
+  
+  output$acf_causality_warning <- renderUI({
+    if (!isTRUE(acf_is_causal())) {
+      div(
+        style = paste(
+          "color: #c0392b;",
+          "font-size: 12px;",
+          "font-style: italic;",
+          "padding: 4px 8px;",
+          "flex-shrink: 0;"
+        ),
+        "⚠ AR part is not causal, so the theoretical ACF may not be accurate."
+      )
+    }
+  })
   
   # ── Placeholder: coefficient estimates panel ──
   output$coef_est_panel <- renderUI({
