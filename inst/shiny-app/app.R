@@ -1,4 +1,5 @@
 library(shiny)
+library(colourpicker)
 source("../../R/ts_functions.R")
 
 # ── UI ────────────────────────────────────────────────────────────────────────
@@ -276,32 +277,32 @@ ui <- fluidPage(
                         # ── Sub-branch: Data plot ──
                         conditionalPanel(
                           condition = "input.graph_modify == 'Data plot'",
-                          
+
                           numericInput("data_pch",
                                        "Select the point symbol for the plot",
                                        value = 1, min = 0, max = 25
                           ),
-                          textInput("data_col",
-                                    "Input Color for the point symbol",
-                                    value = "#FFFFFF"
+                          colourInput("data_col",
+                                      "Point color",
+                                      value = "#000000"
                           )
                         ),
-                        
+
                         # ── Sub-branch: ACF / ACVF ──
                         conditionalPanel(
                           condition = "input.graph_modify == 'ACF / ACVF'",
-                          
-                          selectInput("line_modify",
-                                      "Which line would you like to modify?",
-                                      choices = c("Theoretical", "Sample")
-                          ),
+
                           numericInput("line_pch",
                                        "Select the point symbol for the line",
                                        value = 1, min = 0, max = 25
                           ),
-                          textInput("line_col",
-                                    "Input Color for the line's point symbol",
-                                    value = "#FFFFFF"
+                          colourInput("theo_col",
+                                      "Theoretical line color",
+                                      value = "#2c7bb6"
+                          ),
+                          colourInput("sample_col",
+                                      "Sample line color",
+                                      value = "#d7191c"
                           )
                         )
                       )
@@ -624,13 +625,10 @@ server <- function(input, output, session) {
     
     y_range <- range(c(theo_acvf, sample_acvf), na.rm = TRUE)
 
-    theo_col   <- if (input$line_modify == "Theoretical") input$line_col else "#2c7bb6"
-    sample_col <- if (input$line_modify == "Sample") input$line_col else "#d7191c"
-
     plot(lags, theo_acvf,
          type = "b",
          pch  = input$line_pch,
-         col  = theo_col,
+         col  = input$theo_col,
          lwd  = 2,
          ylim = y_range,
          main = "ACVF: Theoretical vs Sample",
@@ -640,14 +638,14 @@ server <- function(input, output, session) {
     lines(lags, sample_acvf,
           type = "b",
           pch  = input$line_pch,
-          col  = sample_col,
+          col  = input$sample_col,
           lwd  = 2,
           lty  = 2
     )
     abline(h = 0, col = "grey60", lty = 3)
     legend("topright",
            legend = c("Theoretical", "Sample"),
-           col    = c(theo_col, sample_col),
+           col    = c(input$theo_col, input$sample_col),
            lty    = c(1, 2),
            pch    = input$line_pch,
            lwd    = 2,
@@ -677,13 +675,10 @@ server <- function(input, output, session) {
     ci_bound <- 1.96 / sqrt(n)
     y_range <- range(c(theo_acf, sample_acf, ci_bound, -ci_bound), na.rm = TRUE)
     
-    theo_col   <- if (input$line_modify == "Theoretical") input$line_col else "#2c7bb6"
-    sample_col <- if (input$line_modify == "Sample") input$line_col else "#d7191c"
-
     plot(lags, theo_acf,
          type = "b",
          pch  = input$line_pch,
-         col  = theo_col,
+         col  = input$theo_col,
          lwd  = 2,
          ylim = y_range,
          main = "ACF: Theoretical vs Sample",
@@ -693,7 +688,7 @@ server <- function(input, output, session) {
     lines(lags, sample_acf,
           type = "b",
           pch  = input$line_pch,
-          col  = sample_col,
+          col  = input$sample_col,
           lwd  = 2,
           lty  = 2
     )
@@ -702,7 +697,7 @@ server <- function(input, output, session) {
     abline(h = -ci_bound, col = "grey40",  lty = 2)
     legend("topright",
            legend = c("Theoretical", "Sample", "95% CI"),
-           col    = c(theo_col, sample_col, "grey40"),
+           col    = c(input$theo_col, input$sample_col, "grey40"),
            lty    = c(1, 2, 2),
            pch    = c(input$line_pch, input$line_pch, NA),
            lwd    = 2,
