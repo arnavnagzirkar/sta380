@@ -1,4 +1,5 @@
 library(shiny)
+library(colourpicker)
 source("../../R/ts_functions.R")
 
 # ── UI ────────────────────────────────────────────────────────────────────────
@@ -276,32 +277,32 @@ ui <- fluidPage(
                         # ── Sub-branch: Data plot ──
                         conditionalPanel(
                           condition = "input.graph_modify == 'Data plot'",
-                          
+
                           numericInput("data_pch",
                                        "Select the point symbol for the plot",
                                        value = 1, min = 0, max = 25
                           ),
-                          textInput("data_col",
-                                    "Input Color for the point symbol",
-                                    value = "#FFFFFF"
+                          colourInput("data_col",
+                                      "Point color",
+                                      value = "#000000"
                           )
                         ),
-                        
+
                         # ── Sub-branch: ACF / ACVF ──
                         conditionalPanel(
                           condition = "input.graph_modify == 'ACF / ACVF'",
-                          
-                          selectInput("line_modify",
-                                      "Which line would you like to modify?",
-                                      choices = c("Theoretical", "Sample")
-                          ),
+
                           numericInput("line_pch",
                                        "Select the point symbol for the line",
                                        value = 1, min = 0, max = 25
                           ),
-                          textInput("line_col",
-                                    "Input Color for the line's point symbol",
-                                    value = "#FFFFFF"
+                          colourInput("theo_col",
+                                      "Theoretical line color",
+                                      value = "#2c7bb6"
+                          ),
+                          colourInput("sample_col",
+                                      "Sample line color",
+                                      value = "#d7191c"
                           )
                         )
                       )
@@ -599,12 +600,12 @@ server <- function(input, output, session) {
     model <- sim_model()
     validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
     
-    plot.ts(
-      model$data,
-      main = "Simulated Time Series",
-      ylab = expression(X[t]),
-      xlab = "t"
+    plot(model$data, type = "l",
+         main = "Simulated Time Series",
+         ylab = expression(X[t]),
+         xlab = "t"
     )
+    points(model$data, pch = input$data_pch, col = input$data_col)
   })
   
   # ── ACVF plot (theoretical + sample) ──────────────────────────────────
@@ -623,11 +624,11 @@ server <- function(input, output, session) {
     sample_acvf <- get_sample_acvf(model, max_lag = max_lag)
     
     y_range <- range(c(theo_acvf, sample_acvf), na.rm = TRUE)
-    
+
     plot(lags, theo_acvf,
          type = "b",
          pch  = input$line_pch,
-         col  = "#2c7bb6",
+         col  = input$theo_col,
          lwd  = 2,
          ylim = y_range,
          main = "ACVF: Theoretical vs Sample",
@@ -637,14 +638,14 @@ server <- function(input, output, session) {
     lines(lags, sample_acvf,
           type = "b",
           pch  = input$line_pch,
-          col  = "#d7191c",
+          col  = input$sample_col,
           lwd  = 2,
           lty  = 2
     )
     abline(h = 0, col = "grey60", lty = 3)
     legend("topright",
            legend = c("Theoretical", "Sample"),
-           col    = c("#2c7bb6", "#d7191c"),
+           col    = c(input$theo_col, input$sample_col),
            lty    = c(1, 2),
            pch    = input$line_pch,
            lwd    = 2,
@@ -677,7 +678,7 @@ server <- function(input, output, session) {
     plot(lags, theo_acf,
          type = "b",
          pch  = input$line_pch,
-         col  = "#2c7bb6",
+         col  = input$theo_col,
          lwd  = 2,
          ylim = y_range,
          main = "ACF: Theoretical vs Sample",
@@ -687,7 +688,7 @@ server <- function(input, output, session) {
     lines(lags, sample_acf,
           type = "b",
           pch  = input$line_pch,
-          col  = "#d7191c",
+          col  = input$sample_col,
           lwd  = 2,
           lty  = 2
     )
@@ -696,7 +697,7 @@ server <- function(input, output, session) {
     abline(h = -ci_bound, col = "grey40",  lty = 2)
     legend("topright",
            legend = c("Theoretical", "Sample", "95% CI"),
-           col    = c("#2c7bb6", "#d7191c", "grey40"),
+           col    = c(input$theo_col, input$sample_col, "grey40"),
            lty    = c(1, 2, 2),
            pch    = c(input$line_pch, input$line_pch, NA),
            lwd    = 2,
