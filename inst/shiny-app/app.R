@@ -257,7 +257,14 @@ ui <- fluidPage(
                         selectInput("model_criterion", "Model Selection Criteria:",
                                     choices = c("AIC", "BIC")
                         ),
-                        
+
+                        numericInput("max_p", "Max AR order (p) to search",
+                                     value = 3, min = 0, max = 10, step = 1
+                        ),
+                        numericInput("max_q", "Max MA order (q) to search",
+                                     value = 3, min = 0, max = 10, step = 1
+                        ),
+
                         checkboxGroupInput("display_graphs",
                                            "Which graphs would you like to display?",
                                            choices = c("Data", "ACVF", "ACF"),
@@ -734,9 +741,70 @@ server <- function(input, output, session) {
     h4("Coef. Est.")
   })
   
-  # ── Placeholder: AIC / BIC panel ──
+  # ── AIC / BIC reactive ───────────────────────────────────────────────
+  aic_bic_mat <- reactive({
+    model <- tryCatch(sim_model(), error = function(e) NULL)
+    if (is.null(model)) return(NULL)
+
+    compute_aic_bic(model$data,
+                    max_p     = input$max_p,
+                    max_q     = input$max_q,
+                    criterion = input$model_criterion)
+  })
+
+  # ── AIC / BIC panel ──────────────────────────────────────────────────
   output$aic_bic_panel <- renderUI({
-    h4("AIC / BIC")
+    mat <- aic_bic_mat()
+
+    if (is.null(mat)) {
+      return(p("Click 'Simulate' to compute.",
+               style = "color: #888; font-style: italic; font-size: 13px;"))
+    }
+
+    best <- which(mat == min(mat, na.rm = TRUE), arr.ind = TRUE)
+
+    best_p <- if (nrow(best) > 0) best[1, 1] - 1 else NA
+    best_q <- if (nrow(best) > 0) best[1, 2] - 1 else NA
+
+    cell_base  <- "padding: 8px 10px; border: 1px solid #ddd; text-align: right; font-size: 14px;"
+    cell_best  <- paste0(cell_base, " background-color: #c8f0cc; font-weight: bold; color: #1a6e2e;")
+    th_corner  <- "padding: 8px 10px; border: 1px solid #ddd; background-color: #2c3e50;"
+    th_style   <- paste0(th_corner, " color: #fff; text-align: center; font-size: 14px;")
+    th_row_style <- paste0(cell_base, " background-color: #2c3e50; color: #fff;",
+                           " font-weight: bold; text-align: left;")
+
+    header_cells <- c(
+      list(tags$th(style = th_corner, "")),
+      lapply(colnames(mat), function(nm) tags$th(nm, style = th_style))
+    )
+
+    body_rows <- lapply(seq_len(nrow(mat)), function(i) {
+      cells <- c(
+        list(tags$td(rownames(mat)[i], style = th_row_style)),
+        lapply(seq_len(ncol(mat)), function(j) {
+          val      <- mat[i, j]
+          txt      <- if (is.na(val)) "—" else formatC(val, digits = 1, format = "f")
+          is_best  <- nrow(best) > 0 && best[1, 1] == i && best[1, 2] == j
+          tags$td(txt, style = if (is_best) cell_best else cell_base)
+        })
+      )
+      do.call(tags$tr, cells)
+    })
+
+    div(style = "width: 100%; padding: 12px; box-sizing: border-box;",
+      div(style = "font-size: 14px; font-weight: bold; margin-bottom: 8px;",
+          paste(input$model_criterion, "— ARMA(p, q) grid")),
+      tags$table(
+        style = "border-collapse: collapse; width: 100%;",
+        tags$thead(do.call(tags$tr, header_cells)),
+        do.call(tags$tbody, body_rows)
+      ),
+      if (!is.na(best_p)) {
+        div(style = "font-size: 13px; color: #1a6e2e; margin-top: 8px;",
+            tags$b(paste0("Best: ARMA(", best_p, ", ", best_q, ")")),
+            paste0(" — lowest ", input$model_criterion))
+      }
+    )
   })
 }
 
