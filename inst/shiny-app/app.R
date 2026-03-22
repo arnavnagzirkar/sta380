@@ -1,5 +1,3 @@
-install.packages(c("colourpicker", "forecast"))
-
 library(shiny)
 library(colourpicker)
 source("../../R/ts_functions.R")
