@@ -1,5 +1,6 @@
 #' @import stats
 #' @import graphics
+#' @importFrom colourpicker colourInput
 NULL
 
 #' Generate Simulated Time Series Data

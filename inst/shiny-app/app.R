@@ -1,6 +1,8 @@
 library(shiny)
 library(colourpicker)
-source("../../R/ts_functions.R")
+# source("../../R/ts_functions.R") <- Probable cause of crash.
+
+library(TsimSeriesACF) # Load package itself instead
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 
