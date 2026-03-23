@@ -2,5 +2,4 @@ Type: Shiny
 Title: TsimSeriesACF Shiny App
 Imports: 
     shiny,
-    colourpicker,
-    TsimSeriesACF
+    colourpicker
