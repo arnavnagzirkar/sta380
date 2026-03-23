@@ -1,3 +1,5 @@
+source("init.R")
+
 library(shiny)
 library(colourpicker)
 library(TsimSeriesACF) # Load package itself instead
