@@ -156,6 +156,8 @@ Generative AI was used to assist in the writing, testing, and documentation of s
 For the package compilation phase, generative AI was consulted for conventions
 on package compilation, and to scan for typos.
 
+Generative AI was used for writing the rshiny app. 
+
 # Bibliography
 
 
