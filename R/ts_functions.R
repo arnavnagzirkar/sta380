@@ -312,63 +312,6 @@ get_sample_acvf <- function(model, max_lag = NULL) {
   })
 }
 
-#' Compute AIC or BIC for a grid of ARMA(p, q) models
-#'
-#' @description
-#' Fits ARMA(p, q) models via maximum likelihood for all combinations of
-#' \code{p} in \code{0:max_p} and \code{q} in \code{0:max_q}, then returns
-#' a matrix of the requested criterion values.
-#'
-#' @param data Numeric vector. The observed time series.
-#' @param max_p Integer. Maximum AR order to consider.
-#' @param max_q Integer. Maximum MA order to consider.
-#' @param criterion Character. Either \code{"AIC"} or \code{"BIC"}.
-#'
-#' @details
-#' Each model is estimated by maximum likelihood. The criteria are:
-#' \deqn{
-#'   \text{AIC} = -2 \ell + 2k, \quad \text{BIC} = -2 \ell + k \log n,
-#' }
-#' where \eqn{\ell} is the maximised log-likelihood (a measure of how well the
-#' model fits the data — higher is better), \eqn{k = p + q + 1} is the number
-#' of estimated parameters, and \eqn{n} is the number of observations.
-#' Lower AIC/BIC is better. BIC applies a heavier penalty for extra parameters,
-#' so it tends to select simpler models than AIC.
-#' The cell for \eqn{(p, q) = (0, 0)} is left as \code{NA} (degenerate model).
-#' Cells where \code{arima()} fails to converge are also \code{NA}.
-#'
-#' @return
-#' A numeric matrix with \code{(max_p + 1)} rows and \code{(max_q + 1)} columns.
-#' Row names are \code{AR0, AR1, ...} and column names are \code{MA0, MA1, ...}.
-#'
-#' @examples
-#' set.seed(1)
-#' x <- arima.sim(list(ar = 0.5), n = 100)
-#' compute_aic_bic(x, max_p = 3, max_q = 3, criterion = "AIC")
-#'
-#' @export
-compute_aic_bic <- function(data, max_p, max_q, criterion = "AIC") {
-  mat <- matrix(NA_real_,
-                nrow = max_p + 1,
-                ncol = max_q + 1,
-                dimnames = list(
-                  paste0("AR", 0:max_p),
-                  paste0("MA", 0:max_q)
-                ))
-
-  for (p in 0:max_p) {
-    for (q in 0:max_q) {
-      if (p == 0 && q == 0) next  # white noise: skip
-      tryCatch({
-        fit <- arima(data, order = c(p, 0, q), method = "ML")
-        mat[p + 1, q + 1] <- if (criterion == "BIC") BIC(fit) else AIC(fit)
-      }, error = function(e) {})
-    }
-  }
-
-  return(mat)
-}
-
 #' Computes the sample autocorrelation of an ARMA(p,q) model
 #'
 #' @description

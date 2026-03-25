@@ -2,6 +2,30 @@ library(shiny)
 library(colourpicker)
 source("../../R/ts_functions.R")
 
+# Compute AIC or BIC for a grid of ARMA(p, q) models.
+# Fits models via ML for all (p, q) in 0:max_p x 0:max_q.
+# Returns a (max_p+1) x (max_q+1) matrix; (0,0) and non-converged cells are NA.
+compute_aic_bic <- function(data, max_p, max_q, criterion = "AIC") {
+  mat <- matrix(NA_real_,
+                nrow = max_p + 1,
+                ncol = max_q + 1,
+                dimnames = list(
+                  paste0("AR", 0:max_p),
+                  paste0("MA", 0:max_q)
+                ))
+
+  for (p in 0:max_p) {
+    for (q in 0:max_q) {
+      if (p == 0 && q == 0) next  # white noise: skip
+      tryCatch({
+        fit <- arima(data, order = c(p, 0, q), method = "ML")
+        mat[p + 1, q + 1] <- if (criterion == "BIC") BIC(fit) else AIC(fit)
+      }, error = function(e) {})
+    }
+  }
+
+  return(mat)
+}
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 
@@ -113,6 +137,52 @@ ui <- fluidPage(
         margin: 0;
       }
 
+      /* ── Model selection modal grid ── */
+      .model-tile {
+        padding: 10px 14px;
+        border: 2px solid #ddd;
+        text-align: center;
+        font-size: 13px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 0.15s, border-color 0.15s;
+        user-select: none;
+      }
+      .model-tile:hover {
+        background-color: #eaf4ff;
+        border-color: #2c7bb6;
+      }
+      .model-tile.tile-auto-best {
+        background-color: #c8f0cc;
+        border-color: #1a6e2e;
+        color: #1a6e2e;
+        font-weight: bold;
+      }
+      .model-tile.tile-selected {
+        background-color: #2c7bb6;
+        border-color: #1a5e96;
+        color: #fff;
+        font-weight: bold;
+      }
+      .model-tile.tile-na {
+        color: #bbb;
+        cursor: default;
+        background-color: #f9f9f9;
+      }
+      .model-tile.tile-na:hover {
+        background-color: #f9f9f9;
+        border-color: #ddd;
+      }
+      .model-grid-header {
+        padding: 6px 10px;
+        background-color: #2c3e50;
+        color: #fff;
+        text-align: center;
+        font-size: 13px;
+        font-weight: bold;
+        border-radius: 3px;
+      }
+
       /* ── Formula preview box ── */
       #formula_preview {
         background-color: #f9f9f9;
@@ -176,7 +246,7 @@ ui <- fluidPage(
   # ── Title Bar ───────────────────────────────────────────────────────────────
   div(class = "title-bar", "Simulating and Fitting ARMA Models"),
 
-  # ── Main 3-Column Layout ────────────────────────────────────────────────────
+  # ── Main 2-Column Layout ────────────────────────────────────────────────────
   fluidRow(class = "main-row",
 
            # ── Left Sidebar (controls) ──────────────────────────────────────────────
@@ -255,23 +325,33 @@ ui <- fluidPage(
                       conditionalPanel(
                         condition = "input.modify_target == 'Graph Output'",
 
-                        selectInput("model_criterion", "Model Selection Criteria:",
-                                    choices = c("AIC", "BIC")
+                        div(style = "display: flex; align-items: flex-end; gap: 8px;",
+                            div(style = "flex: 1;",
+                                selectInput("model_criterion", "Model Selection Criteria:",
+                                            choices = c("AIC", "BIC"))
+                            ),
+                            div(style = "padding-bottom: 15px;",
+                                actionButton("open_model_select", "Select model",
+                                             style = "background-color: #2c3e50; color: #d4a017;
+                                                  border: none; font-size: 12px; padding: 6px 10px;
+                                                  white-space: nowrap;")
+                            )
                         ),
 
                         numericInput("max_p", "Max AR order (p) to search",
-                                     value = 3, min = 0, max = 10, step = 1
+                                     value = 5, min = 0, max = 10, step = 1
                         ),
                         numericInput("max_q", "Max MA order (q) to search",
-                                     value = 3, min = 0, max = 10, step = 1
+                                     value = 5, min = 0, max = 10, step = 1
                         ),
 
                         checkboxGroupInput("display_graphs",
                                            "Which graphs would you like to display?",
-                                           choices = c("Data", "ACVF", "ACF"),
-                                           selected = c("Data", "ACVF", "ACF"),
+                                           choices = c("Data", "ACVF", "ACF", "Forecast overlay"),
+                                           selected = c("Data", "ACVF", "ACF", "Forecast overlay"),
                                            inline = TRUE
                         ),
+
 
                         selectInput("graph_modify",
                                     "Which graph would you like to modify?",
@@ -293,6 +373,13 @@ ui <- fluidPage(
                           colourInput("data_col",
                                       "Point color",
                                       value = "#000000"
+                          ),
+                          conditionalPanel(
+                            condition = "input.display_graphs.indexOf('Forecast overlay') !== -1",
+                            hr(),
+                            sliderInput("forecast_start", "Forecast start (t)",
+                                        min = 1, max = 99, value = 80, step = 1),
+                            uiOutput("selected_model_text")
                           )
                         ),
 
@@ -318,29 +405,25 @@ ui <- fluidPage(
            ),
 
            # ── Center Graph Area ────────────────────────────────────────────────────
-           column(6,
+           column(9,
                   div(class = "graph-area",
                       uiOutput("plots_ui")
                   )
            ),
-
-           # ── Right Info Panels ────────────────────────────────────────────────────
-           column(3,
-                  div(class = "right-panel",
-                      div(class = "right-panel-top",
-                          uiOutput("coef_est_panel")
-                      ),
-                      div(class = "right-panel-bottom",
-                          uiOutput("aic_bic_panel")
-                      )
-                  )
-           )
   )
 )
 
 # ── Server ────────────────────────────────────────────────────────────────────
 
 server <- function(input, output, session) {
+  # ── Manual model selection (NULL = use AIC/BIC minimum) ────────────────
+  manual_model <- reactiveVal(NULL)
+
+  # Reset manual selection whenever the grid inputs change
+  observeEvent(list(input$model_criterion, input$max_p, input$max_q, input$simulate_btn), {
+    manual_model(NULL)
+  }, ignoreInit = TRUE)
+
   # Parse comma-separated numeric input
   parse_num_vector <- function(x) {
     x <- trimws(x)
@@ -390,6 +473,27 @@ server <- function(input, output, session) {
 
     list(mu = vals[1], sigma = vals[2])
   }
+
+  # ── Parse user input data ──
+  parse_user_data <- reactive({
+    req(input$sim_mode == "Input own data")
+
+    x <- trimws(input$user_data)
+
+    if (!nzchar(x)) return(NULL)
+
+    parts <- trimws(strsplit(x, ",")[[1]])
+
+    # reject bad formats like trailing commas
+    if (any(parts == "")) return(NULL)
+
+    vals <- suppressWarnings(as.numeric(parts))
+
+    if (any(is.na(vals))) return(NULL)
+
+    vals
+  })
+
   ar_vals <- reactive({
     parse_num_vector(input$ar_coefs)
   })
@@ -575,6 +679,17 @@ server <- function(input, output, session) {
     )
   })
 
+  # ── Update forecast_start slider range when simulation runs ─────────────
+  observeEvent(input$simulate_btn, {
+    n <- input$n_obs
+    if (!is.na(n) && n >= 2) {
+      updateSliderInput(session, "forecast_start",
+                        min   = 2,
+                        max   = n - 1,
+                        value = max(2, round(n * 0.8)))
+    }
+  })
+
   # ── Dynamic plot UI: show only selected graphs ──────────────────────────
   output$plots_ui <- renderUI({
     selected <- input$display_graphs
@@ -597,24 +712,71 @@ server <- function(input, output, session) {
         uiOutput("acf_causality_warning"),
         div(class = "plot-wrapper", plotOutput("plot_acf", height = "100%", width = "100%"))
       ))
-
     do.call(tagList, plot_list)
   })
 
-  # ── Data plot ──────────────────────────────────────────────────────────
+  # ── Data plot (with optional forecast overlay) ────────────────────────
   output$plot_data <- renderPlot({
     req("Data" %in% input$display_graphs)
     req(input$sim_mode == "Simulate")
     model <- sim_model()
     validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
 
-    plot(model$data, type = "l",
+    n     <- model$n
+    t_obs <- seq_len(n)
+
+    show_fc <- "Forecast overlay" %in% input$display_graphs
+    fc      <- if (show_fc) tryCatch(forecast_out(), error = function(e) NULL) else NULL
+
+    # y range: expand to fit PI bands if forecasting
+    if (!is.null(fc)) {
+      pred  <- as.numeric(fc$pred)
+      se    <- as.numeric(fc$se)
+      upper <- pred + 1.96 * se
+      lower <- pred - 1.96 * se
+      t_start  <- input$forecast_start
+      last_obs <- model$data[t_start - 1]
+      # anchor t_fc and vectors at the last observed point so the line connects
+      t_fc  <- (t_start - 1):n
+      pred  <- c(last_obs, pred)
+      upper <- c(last_obs, upper)
+      lower <- c(last_obs, lower)
+      y_range <- range(c(model$data, upper, lower), na.rm = TRUE)
+    } else {
+      y_range <- range(model$data, na.rm = TRUE)
+    }
+
+    plot(t_obs, model$data, type = "l",
+         ylim = y_range,
          main = "Simulated Time Series",
          ylab = expression(X[t]),
          xlab = "t"
     )
-    points(model$data, pch = input$data_pch, col = input$data_col)
+    points(t_obs, model$data, pch = input$data_pch, col = input$data_col)
+
+    if (!is.null(fc)) {
+      # Shaded 95% PI over the forecast region
+      polygon(c(t_fc, rev(t_fc)), c(upper, rev(lower)),
+              col = adjustcolor("#2c7bb6", alpha.f = 0.15), border = NA)
+
+      # Forecast line and PI bounds
+      lines(t_fc, pred,  col = "#2c7bb6", lwd = 2)
+      lines(t_fc, upper, col = "#2c7bb6", lwd = 1, lty = 2)
+      lines(t_fc, lower, col = "#2c7bb6", lwd = 1, lty = 2)
+
+      # Vertical marker at forecast origin
+      abline(v = t_start, col = "grey50", lty = 3)
+
+      legend("topleft",
+             legend = c("Observed", "Forecast", "95% PI"),
+             col    = c("black", "#2c7bb6", "#2c7bb6"),
+             lty    = c(1, 1, 2),
+             lwd    = c(1, 2, 1),
+             bty    = "n"
+      )
+    }
   })
+
 
   # ── ACVF plot (theoretical + sample) ──────────────────────────────────
   output$plot_acvf <- renderPlot({
@@ -737,11 +899,6 @@ server <- function(input, output, session) {
     }
   })
 
-  # ── Placeholder: coefficient estimates panel ──
-  output$coef_est_panel <- renderUI({
-    h4("Coef. Est.")
-  })
-
   # ── AIC / BIC reactive ───────────────────────────────────────────────
   aic_bic_mat <- reactive({
     model <- tryCatch(sim_model(), error = function(e) NULL)
@@ -753,58 +910,210 @@ server <- function(input, output, session) {
                     criterion = input$model_criterion)
   })
 
-  # ── AIC / BIC panel ──────────────────────────────────────────────────
-  output$aic_bic_panel <- renderUI({
-    mat <- aic_bic_mat()
+  # ── Open model selection modal ──────────────────────────────────────
+  observeEvent(input$open_model_select, {
+    showModal(modalDialog(
+      title = "Select forecast model",
+      uiOutput("model_select_grid"),
+      footer = tagList(
+        actionButton("modal_use_best", "Use best",
+                     style = "background-color: #1a6e2e; color: #fff; border: none;"),
+        modalButton("Close")
+      ),
+      size = "m",
+      easyClose = TRUE
+    ))
+  })
 
+  # "Use best" resets to auto
+  observeEvent(input$modal_use_best, {
+    manual_model(NULL)
+    removeModal()
+  })
+
+  # Tile click: set manual_model and close modal
+  observeEvent(input$model_tile_click, {
+    manual_model(input$model_tile_click)
+    removeModal()
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+  # ── Modal grid renderUI ───────────────────────────────────────────────
+  output$model_select_grid <- renderUI({
+    mat <- aic_bic_mat()
     if (is.null(mat)) {
-      return(p("Click 'Simulate' to compute.",
-               style = "color: #888; font-style: italic; font-size: 13px;"))
+      return(p("Simulate first to populate the grid.",
+               style = "color: #888; font-style: italic;"))
     }
 
-    best <- which(mat == min(mat, na.rm = TRUE), arr.ind = TRUE)
+    auto_idx <- which(mat == min(mat, na.rm = TRUE), arr.ind = TRUE)
+    auto_p   <- auto_idx[1, 1] - 1
+    auto_q   <- auto_idx[1, 2] - 1
 
-    best_p <- if (nrow(best) > 0) best[1, 1] - 1 else NA
-    best_q <- if (nrow(best) > 0) best[1, 2] - 1 else NA
+    sel <- manual_model()
+    if (!is.null(sel)) {
+      parts  <- as.integer(strsplit(sel, ",")[[1]])
+      sel_p  <- parts[1]; sel_q <- parts[2]
+    } else {
+      sel_p  <- auto_p;   sel_q <- auto_q
+    }
 
-    cell_base  <- "padding: 8px 10px; border: 1px solid #ddd; text-align: right; font-size: 14px;"
-    cell_best  <- paste0(cell_base, " background-color: #c8f0cc; font-weight: bold; color: #1a6e2e;")
-    th_corner  <- "padding: 8px 10px; border: 1px solid #ddd; background-color: #2c3e50;"
-    th_style   <- paste0(th_corner, " color: #fff; text-align: center; font-size: 14px;")
-    th_row_style <- paste0(cell_base, " background-color: #2c3e50; color: #fff;",
-                           " font-weight: bold; text-align: left;")
-
-    header_cells <- c(
-      list(tags$th(style = th_corner, "")),
-      lapply(colnames(mat), function(nm) tags$th(nm, style = th_style))
+    # Column headers row
+    n_col <- ncol(mat)
+    header_row <- div(
+      style = paste0("display: grid; grid-template-columns: 80px repeat(", n_col, ", 1fr);
+                      gap: 4px; margin-bottom: 4px;"),
+      div(),
+      lapply(colnames(mat), function(nm) div(class = "model-grid-header", nm))
     )
 
     body_rows <- lapply(seq_len(nrow(mat)), function(i) {
-      cells <- c(
-        list(tags$td(rownames(mat)[i], style = th_row_style)),
-        lapply(seq_len(ncol(mat)), function(j) {
-          val      <- mat[i, j]
-          txt      <- if (is.na(val)) "—" else formatC(val, digits = 1, format = "f")
-          is_best  <- nrow(best) > 0 && best[1, 1] == i && best[1, 2] == j
-          tags$td(txt, style = if (is_best) cell_best else cell_base)
+      p_val <- i - 1
+      div(
+        style = paste0("display: grid; grid-template-columns: 80px repeat(", n_col, ", 1fr);
+                        gap: 4px; margin-bottom: 4px;"),
+        div(class = "model-grid-header", rownames(mat)[i]),
+        lapply(seq_len(n_col), function(j) {
+          q_val   <- j - 1
+          val     <- mat[i, j]
+          txt     <- if (is.na(val)) "—" else formatC(val, digits = 1, format = "f")
+          is_na   <- is.na(val)
+          is_auto <- (p_val == auto_p && q_val == auto_q)
+          is_sel  <- (p_val == sel_p  && q_val == sel_q)
+
+          tile_class <- paste("model-tile",
+                              if (is_na)        "tile-na"
+                              else if (is_sel)  "tile-selected"
+                              else if (is_auto) "tile-auto-best"
+                              else              ""
+          )
+
+          onclick_js <- if (!is_na) {
+            sprintf("Shiny.setInputValue('model_tile_click', '%d,%d', {priority: 'event'})",
+                    p_val, q_val)
+          } else ""
+
+          div(class = tile_class,
+              onclick = onclick_js,
+              txt)
         })
       )
-      do.call(tags$tr, cells)
     })
 
-    div(style = "width: 100%; padding: 12px; box-sizing: border-box;",
-      div(style = "font-size: 14px; font-weight: bold; margin-bottom: 8px;",
-          paste(input$model_criterion, "— ARMA(p, q) grid")),
-      tags$table(
-        style = "border-collapse: collapse; width: 100%;",
-        tags$thead(do.call(tags$tr, header_cells)),
-        do.call(tags$tbody, body_rows)
-      ),
-      if (!is.na(best_p)) {
-        div(style = "font-size: 13px; color: #1a6e2e; margin-top: 8px;",
-            tags$b(paste0("Best: ARMA(", best_p, ", ", best_q, ")")),
-            paste0(" — lowest ", input$model_criterion))
-      }
+    div(
+      div(style = "font-size: 13px; margin-bottom: 10px; color: #555;",
+          paste(input$model_criterion, "values — click a cell to select that model")),
+      header_row,
+      do.call(tagList, body_rows),
+      div(style = "font-size: 12px; color: #555; margin-top: 10px;",
+          if (is.null(manual_model())) {
+            tags$span(style = "color: #1a6e2e; font-weight: bold;",
+                      paste0("Auto: ARMA(", auto_p, ", ", auto_q,
+                             ") — lowest ", input$model_criterion))
+          } else {
+            tags$span(style = "color: #2c7bb6; font-weight: bold;",
+                      paste0("Selected: ARMA(", sel_p, ", ", sel_q, ")"))
+          })
+    )
+  })
+
+  # ── AIC / BIC panel ──────────────────────────────────────────────────
+
+  # ── Best model fit (auto or manually selected) ──────────────────────────
+  best_fit <- reactive({
+    req("Forecast overlay" %in% input$display_graphs)
+    mat   <- aic_bic_mat()
+    model <- tryCatch(sim_model(), error = function(e) NULL)
+    req(mat, model, input$forecast_start)
+
+    sel <- manual_model()
+    if (!is.null(sel)) {
+      parts  <- as.integer(strsplit(sel, ",")[[1]])
+      best_p <- parts[1]; best_q <- parts[2]
+    } else {
+      idx    <- which(mat == min(mat, na.rm = TRUE), arr.ind = TRUE)
+      best_p <- idx[1, 1] - 1
+      best_q <- idx[1, 2] - 1
+    }
+
+    t_start <- input$forecast_start
+    train   <- model$data[seq_len(t_start - 1)]
+
+    tryCatch(
+      arima(train, order = c(best_p, 0, best_q), method = "ML"),
+      error = function(e) NULL
+    )
+  })
+
+  # ── Forecast from forecast_start to end of series ────────────────────
+  forecast_out <- reactive({
+    fit     <- best_fit()
+    model   <- tryCatch(sim_model(), error = function(e) NULL)
+    req(fit, model, input$forecast_start)
+    h <- model$n - input$forecast_start + 1
+    req(h >= 1)
+    predict(fit, n.ahead = h)
+  })
+
+  # ── Selected model label + equation ─────────────────────────────────
+  output$selected_model_text <- renderUI({
+    mat <- aic_bic_mat()
+    req(mat)
+
+    fit <- tryCatch(best_fit(), error = function(e) NULL)
+    req(fit)
+
+    sel <- manual_model()
+    if (!is.null(sel)) {
+      parts  <- as.integer(strsplit(sel, ",")[[1]])
+      best_p <- parts[1]; best_q <- parts[2]
+      source_label <- "manually selected"
+    } else {
+      idx    <- which(mat == min(mat, na.rm = TRUE), arr.ind = TRUE)
+      best_p <- idx[1, 1] - 1
+      best_q <- idx[1, 2] - 1
+      source_label <- paste0("selected by ", input$model_criterion)
+    }
+
+    # Extract fitted coefficients from arima object
+    cf <- coef(fit)
+    ar_coefs <- cf[grepl("^ar", names(cf))]
+    ma_coefs <- cf[grepl("^ma", names(cf))]
+
+    fmt <- function(x) {
+      s <- formatC(round(x, 3), format = "f", digits = 3)
+      s
+    }
+
+    ar_part <- ""
+    if (length(ar_coefs) > 0) {
+      ar_terms <- vapply(seq_along(ar_coefs), function(i) {
+        paste0(fmt(ar_coefs[i]), "X_{t-", i, "}")
+      }, character(1))
+      ar_part <- paste(ar_terms, collapse = " + ")
+    }
+
+    ma_part <- ""
+    if (length(ma_coefs) > 0) {
+      ma_terms <- vapply(seq_along(ma_coefs), function(i) {
+        v <- ma_coefs[i]
+        if (v >= 0) paste0("+ ", fmt(v),  "W_{t-", i, "}")
+        else        paste0("- ", fmt(abs(v)), "W_{t-", i, "}")
+      }, character(1))
+      ma_part <- paste(ma_terms, collapse = " ")
+    }
+
+    rhs <- paste0(
+      if (nzchar(ar_part)) paste0(ar_part, " + ") else "",
+      "W_t",
+      if (nzchar(ma_part)) paste0(" ", ma_part) else ""
+    )
+
+    latex_str <- paste0("$$X_t = ", rhs, "$$")
+
+    tagList(
+      div(style = "font-size: 12px; color: #555; margin-top: 4px;",
+          paste0("Forecast: ARMA(", best_p, ", ", best_q, ") — ", source_label)),
+      withMathJax(HTML(latex_str))
     )
   })
 }
