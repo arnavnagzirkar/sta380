@@ -420,9 +420,10 @@ server <- function(input, output, session) {
   manual_model <- reactiveVal(NULL)
 
   # Reset manual selection whenever the grid inputs change
-  observeEvent(list(input$model_criterion, input$max_p, input$max_q, input$simulate_btn), {
-    manual_model(NULL)
-  }, ignoreInit = TRUE)
+  observeEvent(list(input$model_criterion, input$max_p, input$max_q,
+                    input$simulate_btn, input$user_data), {
+                      manual_model(NULL)
+                    }, ignoreInit = TRUE)
 
   # Parse comma-separated numeric input
   parse_num_vector <- function(x) {
@@ -492,6 +493,19 @@ server <- function(input, output, session) {
     if (any(is.na(vals))) return(NULL)
 
     vals
+  })
+
+  # ── Unified data source: either simulated or user-supplied ──────────────
+  active_data <- reactive({
+    if (input$sim_mode == "Input own data") {
+      vals <- parse_user_data()
+      req(!is.null(vals), length(vals) >= 2)
+      vals
+    } else {
+      model <- tryCatch(sim_model(), error = function(e) NULL)
+      req(!is.null(model))
+      model$data
+    }
   })
 
   ar_vals <- reactive({
@@ -690,6 +704,18 @@ server <- function(input, output, session) {
     }
   })
 
+  # Update slider when user data changes
+  observeEvent(parse_user_data(), {
+    vals <- parse_user_data()
+    if (!is.null(vals) && length(vals) >= 2) {
+      n <- length(vals)
+      updateSliderInput(session, "forecast_start",
+                        min   = 2,
+                        max   = n - 1,
+                        value = max(2, round(n * 0.8)))
+    }
+  }, ignoreNULL = TRUE)
+
   # ── Dynamic plot UI: show only selected graphs ──────────────────────────
   output$plots_ui <- renderUI({
     selected <- input$display_graphs
@@ -718,55 +744,52 @@ server <- function(input, output, session) {
   # ── Data plot (with optional forecast overlay) ────────────────────────
   output$plot_data <- renderPlot({
     req("Data" %in% input$display_graphs)
-    req(input$sim_mode == "Simulate")
-    model <- sim_model()
-    validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
+    data <- tryCatch(active_data(), error = function(e) NULL)
+    validate(need(!is.null(data),
+                  if (input$sim_mode == "Simulate")
+                    "Click 'Simulate' after entering valid inputs."
+                  else
+                    "Enter valid comma-separated numeric values."))
 
-    n     <- model$n
+    n     <- length(data)
     t_obs <- seq_len(n)
 
     show_fc <- "Forecast overlay" %in% input$display_graphs
     fc      <- if (show_fc) tryCatch(forecast_out(), error = function(e) NULL) else NULL
 
-    # y range: expand to fit PI bands if forecasting
     if (!is.null(fc)) {
-      pred  <- as.numeric(fc$pred)
-      se    <- as.numeric(fc$se)
-      upper <- pred + 1.96 * se
-      lower <- pred - 1.96 * se
+      pred     <- as.numeric(fc$pred)
+      se       <- as.numeric(fc$se)
+      upper    <- pred + 1.96 * se
+      lower    <- pred - 1.96 * se
       t_start  <- input$forecast_start
-      last_obs <- model$data[t_start - 1]
-      # anchor t_fc and vectors at the last observed point so the line connects
-      t_fc  <- (t_start - 1):n
-      pred  <- c(last_obs, pred)
-      upper <- c(last_obs, upper)
-      lower <- c(last_obs, lower)
-      y_range <- range(c(model$data, upper, lower), na.rm = TRUE)
+      last_obs <- data[t_start - 1]
+      t_fc     <- (t_start - 1):n
+      pred     <- c(last_obs, pred)
+      upper    <- c(last_obs, upper)
+      lower    <- c(last_obs, lower)
+      y_range  <- range(c(data, upper, lower), na.rm = TRUE)
     } else {
-      y_range <- range(model$data, na.rm = TRUE)
+      y_range <- range(data, na.rm = TRUE)
     }
 
-    plot(t_obs, model$data, type = "l",
+    main_title <- if (input$sim_mode == "Simulate") "Simulated Time Series" else "Input Time Series"
+
+    plot(t_obs, data, type = "l",
          ylim = y_range,
-         main = "Simulated Time Series",
+         main = main_title,
          ylab = expression(X[t]),
          xlab = "t"
     )
-    points(t_obs, model$data, pch = input$data_pch, col = input$data_col)
+    points(t_obs, data, pch = input$data_pch, col = input$data_col)
 
     if (!is.null(fc)) {
-      # Shaded 95% PI over the forecast region
       polygon(c(t_fc, rev(t_fc)), c(upper, rev(lower)),
               col = adjustcolor("#2c7bb6", alpha.f = 0.15), border = NA)
-
-      # Forecast line and PI bounds
       lines(t_fc, pred,  col = "#2c7bb6", lwd = 2)
       lines(t_fc, upper, col = "#2c7bb6", lwd = 1, lty = 2)
       lines(t_fc, lower, col = "#2c7bb6", lwd = 1, lty = 2)
-
-      # Vertical marker at forecast origin
       abline(v = t_start, col = "grey50", lty = 3)
-
       legend("topleft",
              legend = c("Observed", "Forecast", "95% PI"),
              col    = c("black", "#2c7bb6", "#2c7bb6"),
@@ -778,101 +801,131 @@ server <- function(input, output, session) {
   })
 
 
-  # ── ACVF plot (theoretical + sample) ──────────────────────────────────
+  # ── ACVF plot (theoretical + sample, or sample-only for user data) ────
   output$plot_acvf <- renderPlot({
     req("ACVF" %in% input$display_graphs)
-    req(input$sim_mode == "Simulate")
-    model <- sim_model()
-    validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
-
-    nv      <- noise_vals()
-    sigma   <- if (!is.null(nv)) nv$sigma else 1
     max_lag <- input$max_lag
     lags    <- 0:max_lag
 
-    theo_acvf   <- get_theoretical_acvf(model, sigma = sigma, max_lag = max_lag)
-    sample_acvf <- get_sample_acvf(model, max_lag = max_lag)
+    if (input$sim_mode == "Simulate") {
+      model <- tryCatch(sim_model(), error = function(e) NULL)
+      validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
 
-    y_range <- range(c(theo_acvf, sample_acvf), na.rm = TRUE)
+      nv    <- noise_vals()
+      sigma <- if (!is.null(nv)) nv$sigma else 1
 
-    plot(lags, theo_acvf,
-         type = "b",
-         pch  = input$line_pch,
-         col  = input$theo_col,
-         lwd  = 2,
-         ylim = y_range,
-         main = "ACVF: Theoretical vs Sample",
-         xlab = "Lag",
-         ylab = expression(gamma(h))
-    )
-    lines(lags, sample_acvf,
-          type = "b",
-          pch  = input$line_pch,
-          col  = input$sample_col,
-          lwd  = 2,
-          lty  = 2
-    )
-    abline(h = 0, col = "grey60", lty = 3)
-    legend("topright",
-           legend = c("Theoretical", "Sample"),
-           col    = c(input$theo_col, input$sample_col),
-           lty    = c(1, 2),
-           pch    = input$line_pch,
-           lwd    = 2,
-           bty    = "n"
-    )
+      theo_acvf   <- get_theoretical_acvf(model, sigma = sigma, max_lag = max_lag)
+      sample_acvf <- get_sample_acvf(model, max_lag = max_lag)
+      y_range     <- range(c(theo_acvf, sample_acvf), na.rm = TRUE)
+
+      plot(lags, theo_acvf,
+           type = "b", pch = input$line_pch, col = input$theo_col, lwd = 2,
+           ylim = y_range,
+           main = "ACVF: Theoretical vs Sample",
+           xlab = "Lag", ylab = expression(gamma(h))
+      )
+      lines(lags, sample_acvf,
+            type = "b", pch = input$line_pch, col = input$sample_col, lwd = 2, lty = 2)
+      abline(h = 0, col = "grey60", lty = 3)
+      legend("topright",
+             legend = c("Theoretical", "Sample"),
+             col    = c(input$theo_col, input$sample_col),
+             lty    = c(1, 2), pch = input$line_pch, lwd = 2, bty = "n"
+      )
+    } else {
+      data <- tryCatch(active_data(), error = function(e) NULL)
+      validate(need(!is.null(data), "Enter valid comma-separated numeric values."))
+
+      eff_lag     <- min(max_lag, length(data) - 1)
+      sample_acvf <- acf(data, lag.max = eff_lag, type = "covariance",
+                         plot = FALSE)$acf[, , 1]
+      lags_out    <- 0:eff_lag
+      y_range     <- range(sample_acvf, na.rm = TRUE)
+
+      plot(lags_out, sample_acvf,
+           type = "b", pch = input$line_pch, col = input$sample_col, lwd = 2, lty = 2,
+           ylim = y_range,
+           main = "ACVF: Sample",
+           xlab = "Lag", ylab = expression(gamma(h))
+      )
+      abline(h = 0, col = "grey60", lty = 3)
+      legend("topright",
+             legend = "Sample",
+             col    = input$sample_col,
+             lty    = 2, pch = input$line_pch, lwd = 2, bty = "n"
+      )
+    }
   })
 
-  # ── ACF plot (theoretical + sample) ───────────────────────────────────
+  # ── ACF plot (theoretical + sample, or sample-only for user data) ──────
   output$plot_acf <- renderPlot({
     req("ACF" %in% input$display_graphs)
-    req(input$sim_mode == "Simulate")
-    model <- sim_model()
-    validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
-
-    nv      <- noise_vals()
-    sigma   <- if (!is.null(nv)) nv$sigma else 1
     max_lag <- input$max_lag
     lags    <- 0:max_lag
 
-    invisible(capture.output(
-      theo_acf <- get_theoretical_acf(model, sigma = sigma, max_lag = max_lag)
-    ))
-    sample_acf <- get_sample_acf(model, max_lag = max_lag)
+    if (input$sim_mode == "Simulate") {
+      model <- tryCatch(sim_model(), error = function(e) NULL)
+      validate(need(!is.null(model), "Click 'Simulate' after entering valid inputs."))
 
-    # 95% confidence bounds (Bartlett's approximation)
-    n       <- model$n
-    ci_bound <- 1.96 / sqrt(n)
-    y_range <- range(c(theo_acf, sample_acf, ci_bound, -ci_bound), na.rm = TRUE)
+      nv    <- noise_vals()
+      sigma <- if (!is.null(nv)) nv$sigma else 1
 
-    plot(lags, theo_acf,
-         type = "b",
-         pch  = input$line_pch,
-         col  = input$theo_col,
-         lwd  = 2,
-         ylim = y_range,
-         main = "ACF: Theoretical vs Sample",
-         xlab = "Lag",
-         ylab = expression(rho(h))
-    )
-    lines(lags, sample_acf,
-          type = "b",
-          pch  = input$line_pch,
-          col  = input$sample_col,
-          lwd  = 2,
-          lty  = 2
-    )
-    abline(h =  0,        col = "grey60",  lty = 3)
-    abline(h =  ci_bound, col = "grey40",  lty = 2)
-    abline(h = -ci_bound, col = "grey40",  lty = 2)
-    legend("topright",
-           legend = c("Theoretical", "Sample", "95% CI"),
-           col    = c(input$theo_col, input$sample_col, "grey40"),
-           lty    = c(1, 2, 2),
-           pch    = c(input$line_pch, input$line_pch, NA),
-           lwd    = 2,
-           bty    = "n"
-    )
+      invisible(capture.output(
+        theo_acf <- get_theoretical_acf(model, sigma = sigma, max_lag = max_lag)
+      ))
+      sample_acf <- get_sample_acf(model, max_lag = max_lag)
+
+      n        <- model$n
+      ci_bound <- 1.96 / sqrt(n)
+      y_range  <- range(c(theo_acf, sample_acf, ci_bound, -ci_bound), na.rm = TRUE)
+
+      plot(lags, theo_acf,
+           type = "b", pch = input$line_pch, col = input$theo_col, lwd = 2,
+           ylim = y_range,
+           main = "ACF: Theoretical vs Sample",
+           xlab = "Lag", ylab = expression(rho(h))
+      )
+      lines(lags, sample_acf,
+            type = "b", pch = input$line_pch, col = input$sample_col, lwd = 2, lty = 2)
+      abline(h =  0,        col = "grey60", lty = 3)
+      abline(h =  ci_bound, col = "grey40", lty = 2)
+      abline(h = -ci_bound, col = "grey40", lty = 2)
+      legend("topright",
+             legend = c("Theoretical", "Sample", "95% CI"),
+             col    = c(input$theo_col, input$sample_col, "grey40"),
+             lty    = c(1, 2, 2),
+             pch    = c(input$line_pch, input$line_pch, NA),
+             lwd    = 2, bty = "n"
+      )
+    } else {
+      data <- tryCatch(active_data(), error = function(e) NULL)
+      validate(need(!is.null(data), "Enter valid comma-separated numeric values."))
+
+      n        <- length(data)
+      eff_lag  <- min(max_lag, n - 1)
+      sample_acf <- acf(data, lag.max = eff_lag, type = "correlation",
+                        plot = FALSE)$acf[, , 1]
+      lags_out <- 0:eff_lag
+      ci_bound <- 1.96 / sqrt(n)
+      y_range  <- range(c(sample_acf, ci_bound, -ci_bound), na.rm = TRUE)
+
+      plot(lags_out, sample_acf,
+           type = "b", pch = input$line_pch, col = input$sample_col, lwd = 2, lty = 2,
+           ylim = y_range,
+           main = "ACF: Sample",
+           xlab = "Lag", ylab = expression(rho(h))
+      )
+      abline(h =  0,        col = "grey60", lty = 3)
+      abline(h =  ci_bound, col = "grey40", lty = 2)
+      abline(h = -ci_bound, col = "grey40", lty = 2)
+      legend("topright",
+             legend = c("Sample", "95% CI"),
+             col    = c(input$sample_col, "grey40"),
+             lty    = c(2, 2),
+             pch    = c(input$line_pch, NA),
+             lwd    = 2, bty = "n"
+      )
+    }
   })
 
 
@@ -901,10 +954,10 @@ server <- function(input, output, session) {
 
   # ── AIC / BIC reactive ───────────────────────────────────────────────
   aic_bic_mat <- reactive({
-    model <- tryCatch(sim_model(), error = function(e) NULL)
-    if (is.null(model)) return(NULL)
+    data <- tryCatch(active_data(), error = function(e) NULL)
+    req(!is.null(data))
 
-    compute_aic_bic(model$data,
+    compute_aic_bic(data,
                     max_p     = input$max_p,
                     max_q     = input$max_q,
                     criterion = input$model_criterion)
@@ -941,8 +994,11 @@ server <- function(input, output, session) {
   output$model_select_grid <- renderUI({
     mat <- aic_bic_mat()
     if (is.null(mat)) {
-      return(p("Simulate first to populate the grid.",
-               style = "color: #888; font-style: italic;"))
+      return(p(if (input$sim_mode == "Simulate")
+        "Simulate first to populate the grid."
+        else
+          "Enter valid data to populate the grid.",
+        style = "color: #888; font-style: italic;"))
     }
 
     auto_idx <- which(mat == min(mat, na.rm = TRUE), arr.ind = TRUE)
@@ -1021,9 +1077,9 @@ server <- function(input, output, session) {
   # ── Best model fit (auto or manually selected) ──────────────────────────
   best_fit <- reactive({
     req("Forecast overlay" %in% input$display_graphs)
-    mat   <- aic_bic_mat()
-    model <- tryCatch(sim_model(), error = function(e) NULL)
-    req(mat, model, input$forecast_start)
+    mat  <- aic_bic_mat()
+    data <- tryCatch(active_data(), error = function(e) NULL)
+    req(mat, data, input$forecast_start)
 
     sel <- manual_model()
     if (!is.null(sel)) {
@@ -1036,7 +1092,7 @@ server <- function(input, output, session) {
     }
 
     t_start <- input$forecast_start
-    train   <- model$data[seq_len(t_start - 1)]
+    train   <- data[seq_len(t_start - 1)]
 
     tryCatch(
       arima(train, order = c(best_p, 0, best_q), method = "ML"),
@@ -1046,17 +1102,17 @@ server <- function(input, output, session) {
 
   # ── Forecast from forecast_start to end of series ────────────────────
   forecast_out <- reactive({
-    fit     <- best_fit()
-    model   <- tryCatch(sim_model(), error = function(e) NULL)
-    req(fit, model, input$forecast_start)
-    h <- model$n - input$forecast_start + 1
+    fit  <- best_fit()
+    data <- tryCatch(active_data(), error = function(e) NULL)
+    req(fit, data, input$forecast_start)
+    h <- length(data) - input$forecast_start + 1
     req(h >= 1)
     predict(fit, n.ahead = h)
   })
 
   # ── Selected model label + equation ─────────────────────────────────
   output$selected_model_text <- renderUI({
-    mat <- aic_bic_mat()
+    mat <- tryCatch(aic_bic_mat(), error = function(e) NULL)
     req(mat)
 
     fit <- tryCatch(best_fit(), error = function(e) NULL)
