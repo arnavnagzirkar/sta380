@@ -1,0 +1,22 @@
+Overall I think the website is very good. A few things I would personally edit (because I am super nitpicky):
+
+Instead of W_t I would've LaTeX'd the website and directly find a way to put a subscript down there. (It's actually a bit annoying to use LaTeX with R shiny but it's possible; and I did this within my own example.)
+^Looking at the website prototype feedback, I mentioned this comment earlier and it was not fixed... so...
+
+The AIC/BIC function (compute_aic_bic) uses the built in function arima which kind of defeats the partial purpose of the project (which is to learn how to code AR/MA models from scratch), and the rest of the code base doesn't rely on arima().
+
+Final grade:
+
+fix remaining issues (-2%)
+
+Group grade: 
+> 78/80
+[1] 0.975
+> 78/80 * 6.4
+[1] 6.24
+
+Individual grades are private and will be released later when posted on Quercus. Bonus marks, if applicable, are reflected on Quercus instead of feedback here.
+
+
+
+ 
